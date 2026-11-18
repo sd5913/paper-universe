@@ -24,7 +24,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击折纸小屋唤醒花仙子，出屋后她会提起水桶；移动鼠标并点击/按住左键倾倒浇水，见证草木生长、多造型折纸花绽放与蝶鸟归来。"
+        "点击折纸小屋唤醒花仙子，出屋后她会提起水壶；移动鼠标并点击/按住左键向左倾倒浇水，见证草木生长、多造型折纸花绽放与蝶鸟归来。"
     )
 
     fairy_data_uri = load_asset_data_uri(["fairy.PNG", "fairy.png"])
@@ -58,7 +58,7 @@ def render():
       let fairyImg = null;
       let bucketImg = null;
 
-      let sceneState = "HOUSE_CLOSED"; // HOUSE_CLOSED -> SPRITE_EMERGING -> GARDEN_ACTIVE
+      let sceneState = "HOUSE_CLOSED";
       let doorProgress = 0;
       let sprite;
       let house;
@@ -274,9 +274,9 @@ def render():
         if (sceneState === "HOUSE_CLOSED") {{
           msg = "✨ 点击画面任意处，打开折纸小屋让小精灵飞出来";
         }} else if (sceneState === "SPRITE_EMERGING") {{
-          msg = "🧚 小精灵正在飞出小屋并拿起水桶...";
+          msg = "🧚 小精灵正在飞出小屋并拿起水壶...";
         }} else {{
-          msg = `🪣 移动鼠标引导持桶小精灵，点击或长按左键倾倒浇水（已绽放花朵: ${{bloomedCount}}/${{flowers.length}}）`;
+          msg = `🪣 移动鼠标引导小精灵，点击或长按左键倾倒浇水（已绽放花朵: ${{bloomedCount}}/${{flowers.length}}）`;
         }}
         text(msg, 24, 28);
         pop();
@@ -333,7 +333,7 @@ def render():
         }}
       }}
 
-      // ================== 铃兰花仙子小精灵 + 手持水桶逻辑 ==================
+      // ================== 铃兰花仙子小精灵 + 左侧手持水壶（向左倾斜45度浇水） ==================
       class OrigamiSprite {{
         constructor(x, y) {{
           this.x = x;
@@ -345,7 +345,6 @@ def render():
           this.trail = [];
           this.vx = 0;
 
-          // 水桶专属动画状态
           this.hasBucket = false;
           this.bucketScale = 0;
           this.bucketTilt = 0;
@@ -357,17 +356,17 @@ def render():
           this.targetY = ty;
           if (dist(this.x, this.y, tx, ty) < 18) {{
             sceneState = "GARDEN_ACTIVE";
-            this.hasBucket = true; // 出屋到达花园后正式拿起水桶
+            this.hasBucket = true;
           }}
         }}
         pourWater() {{
           if (!this.hasBucket) return;
-          this.pourTimer = 14; // 触发水桶向前倾倒动画
-          // 从水桶口位置洒出水滴（右手侧偏移）
-          let spoutX = this.x + 30;
-          let spoutY = this.y + 18;
+          this.pourTimer = 14;
+          // 从左侧水壶倾倒后的壶嘴位置洒出水滴
+          let spoutX = this.x - 36;
+          let spoutY = this.y + 22;
           for (let i = 0; i < 2; i++) {{
-            waterDrops.push(new PaperWaterDrop(spoutX + random(-6, 8), spoutY + random(-4, 4)));
+            waterDrops.push(new PaperWaterDrop(spoutX + random(-8, 6), spoutY + random(-4, 4)));
           }}
         }}
         update() {{
@@ -385,15 +384,15 @@ def render():
           this.y = lerp(this.y, this.targetY + hoverY, 0.09);
           this.vx = this.x - prevX;
 
-          // 更新水桶出现缩放与倾倒角度
           if (this.hasBucket) {{
             this.bucketScale = lerp(this.bucketScale, 1, 0.12);
           }}
           if (this.pourTimer > 0) {{
             this.pourTimer--;
-            this.bucketTilt = lerp(this.bucketTilt, 0.82, 0.25); // 向前倾倒约 47 度
+            // 负数代表逆时针（向左）倾斜 45 度（-PI / 4）
+            this.bucketTilt = lerp(this.bucketTilt, -PI / 4, 0.25);
           }} else {{
-            this.bucketTilt = lerp(this.bucketTilt, sin(frameCount * 0.1) * 0.08, 0.15); // 平时轻微晃动
+            this.bucketTilt = lerp(this.bucketTilt, sin(frameCount * 0.1) * 0.07, 0.15);
           }}
 
           this.trail.push({{ x: this.x, y: this.y + 12, alpha: 170 }});
@@ -427,20 +426,19 @@ def render():
             circle(0, 0, 40);
           }}
 
-          // 2. 出屋后在花仙子右手边（x: +20, y: +16）绘制你设计的水桶
+          // 2. 出屋后在花仙子左边（x: -22, y: +16）绘制水桶，浇水时向左倾斜 45 度
           if (this.hasBucket && this.bucketScale > 0.05) {{
             push();
-            translate(20, 16); // 水桶提手挂载在花仙子右手位置（可微调此坐标对齐手部）
+            translate(-22, 16); // 水桶放在小精灵左边手部位置（可微调此坐标）
             scale(this.bucketScale);
             rotate(this.bucketTilt);
 
             if (bucketImg) {{
               imageMode(CENTER);
-              let bH = 34; // 水桶高度（如果觉得水桶偏大或偏小，直接改这个数字即可）
+              let bH = 34; // 水桶高度大小
               let bW = bH * (bucketImg.width / bucketImg.height);
-              image(bucketImg, 2, 6, bW, bH);
+              image(bucketImg, -2, 6, bW, bH);
             }} else {{
-              // 若尚未放入 bucket.png 时的折纸水桶占位提示
               fill('#a8c6df');
               stroke('#6b655c');
               strokeWeight(1.2);
@@ -461,7 +459,7 @@ def render():
           this.x = x;
           this.y = y;
           this.vy = random(3.5, 5.5);
-          this.vx = random(0.6, 1.8); // 随水桶倾倒方向略向右前方抛洒
+          this.vx = random(-1.8, -0.6); // 随向左倾倒的水桶向左下方抛洒水滴
           this.rot = random(-0.2, 0.2);
         }}
         update() {{
