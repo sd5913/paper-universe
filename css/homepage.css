@@ -1,6 +1,7 @@
 
 * {
     box-sizing: border-box;
+    cursor: url("../assets/elf-cursor.png") 48 48, auto;
 }
 
 body {
