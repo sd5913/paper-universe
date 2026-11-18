@@ -130,3 +130,44 @@ body {
 footer {
     font-size: 13px;
 }
+
+
+.floating-cloud {
+    position: absolute;
+    top: 18%;
+    left: 5%;
+    width: 180px;
+
+    animation: floatCloud 8s ease-in-out infinite alternate;
+
+    pointer-events: none;
+}
+
+@keyframes floatCloud {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(45px);
+    }
+}
+
+
+.world-card {
+    cursor: pointer;
+    transform-origin: center bottom;
+}
+
+.world-card:hover {
+    transform: translateY(-12px) rotate(-2deg);
+}
+
+.world-card:active {
+    transform: translateY(-3px) scale(0.97);
+}
+
+.world-card:focus-visible {
+    outline: 3px dashed #486E65;
+    outline-offset: 5px;
+}
