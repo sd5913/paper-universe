@@ -4,21 +4,19 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 
-def load_fairy_data_uri() -> str:
-    """自动查找 assets 文件夹里的 fairy.png / fairy.PNG 并转为 Base64 格式"""
+def load_asset_data_uri(filenames: list[str]) -> str:
+    """自动查找 assets 文件夹里的指定图片并转为 Base64 格式"""
     root_dir = Path(__file__).resolve().parent.parent
-    candidates = [
-        root_dir / "assets" / "fairy.PNG",
-        root_dir / "assets" / "fairy.png",
-        Path("assets/fairy.PNG"),
-        Path("assets/fairy.png"),
-        root_dir / "fairy.PNG",
-        root_dir / "fairy.png",
-    ]
-    for p in candidates:
-        if p.exists():
-            b64 = base64.b64encode(p.read_bytes()).decode("utf-8")
-            return f"data:image/png;base64,{b64}"
+    for name in filenames:
+        candidates = [
+            root_dir / "assets" / name,
+            Path("assets") / name,
+            root_dir / name,
+        ]
+        for p in candidates:
+            if p.exists():
+                b64 = base64.b64encode(p.read_bytes()).decode("utf-8")
+                return f"data:image/png;base64,{b64}"
     return ""
 
 
@@ -26,10 +24,11 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击折纸小屋唤醒花仙子，移动鼠标并点击/按住左键在花园中浇水，见证草木生长、多造型折纸花绽放与蝶鸟归来。"
+        "点击折纸小屋唤醒花仙子，出屋后她会提起水桶；移动鼠标并点击/按住左键倾倒浇水，见证草木生长、多造型折纸花绽放与蝶鸟归来。"
     )
 
-    fairy_data_uri = load_fairy_data_uri()
+    fairy_data_uri = load_asset_data_uri(["fairy.PNG", "fairy.png"])
+    bucket_data_uri = load_asset_data_uri(["bucket.PNG", "bucket.png"])
 
     p5_html = f"""
     <!DOCTYPE html>
@@ -55,9 +54,11 @@ def render():
     <body>
     <script>
       const FAIRY_IMG_DATA = "{fairy_data_uri}";
+      const BUCKET_IMG_DATA = "{bucket_data_uri}";
       let fairyImg = null;
+      let bucketImg = null;
 
-      let sceneState = "HOUSE_CLOSED";
+      let sceneState = "HOUSE_CLOSED"; // HOUSE_CLOSED -> SPRITE_EMERGING -> GARDEN_ACTIVE
       let doorProgress = 0;
       let sprite;
       let house;
@@ -75,6 +76,9 @@ def render():
       function preload() {{
         if (FAIRY_IMG_DATA && FAIRY_IMG_DATA.length > 0) {{
           fairyImg = loadImage(FAIRY_IMG_DATA);
+        }}
+        if (BUCKET_IMG_DATA && BUCKET_IMG_DATA.length > 0) {{
+          bucketImg = loadImage(BUCKET_IMG_DATA);
         }}
       }}
 
@@ -270,9 +274,9 @@ def render():
         if (sceneState === "HOUSE_CLOSED") {{
           msg = "✨ 点击画面任意处，打开折纸小屋让小精灵飞出来";
         }} else if (sceneState === "SPRITE_EMERGING") {{
-          msg = "🧚 小精灵正在飞出小屋...";
+          msg = "🧚 小精灵正在飞出小屋并拿起水桶...";
         }} else {{
-          msg = `💧 移动鼠标引导小精灵，点击或长按左键浇水唤醒花园（已绽放花朵: ${{bloomedCount}}/${{flowers.length}}）`;
+          msg = `🪣 移动鼠标引导持桶小精灵，点击或长按左键倾倒浇水（已绽放花朵: ${{bloomedCount}}/${{flowers.length}}）`;
         }}
         text(msg, 24, 28);
         pop();
@@ -329,6 +333,7 @@ def render():
         }}
       }}
 
+      // ================== 铃兰花仙子小精灵 + 手持水桶逻辑 ==================
       class OrigamiSprite {{
         constructor(x, y) {{
           this.x = x;
@@ -339,6 +344,12 @@ def render():
           this.scaleVal = 0.1;
           this.trail = [];
           this.vx = 0;
+
+          // 水桶专属动画状态
+          this.hasBucket = false;
+          this.bucketScale = 0;
+          this.bucketTilt = 0;
+          this.pourTimer = 0;
         }}
         emergeTo(tx, ty) {{
           this.visible = true;
@@ -346,11 +357,17 @@ def render():
           this.targetY = ty;
           if (dist(this.x, this.y, tx, ty) < 18) {{
             sceneState = "GARDEN_ACTIVE";
+            this.hasBucket = true; // 出屋到达花园后正式拿起水桶
           }}
         }}
         pourWater() {{
+          if (!this.hasBucket) return;
+          this.pourTimer = 14; // 触发水桶向前倾倒动画
+          // 从水桶口位置洒出水滴（右手侧偏移）
+          let spoutX = this.x + 30;
+          let spoutY = this.y + 18;
           for (let i = 0; i < 2; i++) {{
-            waterDrops.push(new PaperWaterDrop(this.x + random(-14, 14), this.y + 38));
+            waterDrops.push(new PaperWaterDrop(spoutX + random(-6, 8), spoutY + random(-4, 4)));
           }}
         }}
         update() {{
@@ -367,6 +384,17 @@ def render():
           this.x = lerp(this.x, this.targetX, 0.09);
           this.y = lerp(this.y, this.targetY + hoverY, 0.09);
           this.vx = this.x - prevX;
+
+          // 更新水桶出现缩放与倾倒角度
+          if (this.hasBucket) {{
+            this.bucketScale = lerp(this.bucketScale, 1, 0.12);
+          }}
+          if (this.pourTimer > 0) {{
+            this.pourTimer--;
+            this.bucketTilt = lerp(this.bucketTilt, 0.82, 0.25); // 向前倾倒约 47 度
+          }} else {{
+            this.bucketTilt = lerp(this.bucketTilt, sin(frameCount * 0.1) * 0.08, 0.15); // 平时轻微晃动
+          }}
 
           this.trail.push({{ x: this.x, y: this.y + 12, alpha: 170 }});
           if (this.trail.length > 14) this.trail.shift();
@@ -388,6 +416,7 @@ def render():
           scale(this.scaleVal * breathX, this.scaleVal);
           setPaperShadow(12, 3, 6, 'rgba(65, 75, 60, 0.22)');
 
+          // 1. 绘制花仙子主体
           if (fairyImg) {{
             imageMode(CENTER);
             let drawH = 104;
@@ -396,6 +425,30 @@ def render():
           }} else {{
             fill('#fff9db');
             circle(0, 0, 40);
+          }}
+
+          // 2. 出屋后在花仙子右手边（x: +20, y: +16）绘制你设计的水桶
+          if (this.hasBucket && this.bucketScale > 0.05) {{
+            push();
+            translate(20, 16); // 水桶提手挂载在花仙子右手位置（可微调此坐标对齐手部）
+            scale(this.bucketScale);
+            rotate(this.bucketTilt);
+
+            if (bucketImg) {{
+              imageMode(CENTER);
+              let bH = 34; // 水桶高度（如果觉得水桶偏大或偏小，直接改这个数字即可）
+              let bW = bH * (bucketImg.width / bucketImg.height);
+              image(bucketImg, 2, 6, bW, bH);
+            }} else {{
+              // 若尚未放入 bucket.png 时的折纸水桶占位提示
+              fill('#a8c6df');
+              stroke('#6b655c');
+              strokeWeight(1.2);
+              quad(-9, 0, 9, 0, 6, 18, -6, 18);
+              noFill();
+              arc(0, 0, 16, 14, PI, TWO_PI);
+            }}
+            pop();
           }}
 
           clearShadow();
@@ -408,9 +461,11 @@ def render():
           this.x = x;
           this.y = y;
           this.vy = random(3.5, 5.5);
+          this.vx = random(0.6, 1.8); // 随水桶倾倒方向略向右前方抛洒
           this.rot = random(-0.2, 0.2);
         }}
         update() {{
+          this.x += this.vx;
           this.y += this.vy;
           this.vy += 0.18;
         }}
