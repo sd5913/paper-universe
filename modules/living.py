@@ -15,8 +15,10 @@ def load_asset_data_uri(filenames: list[str]) -> str:
         ]
         for p in candidates:
             if p.exists():
+                ext = p.suffix.lower().lstrip(".")
+                mime = "jpeg" if ext in ("jpg", "jpeg") else "png"
                 b64 = base64.b64encode(p.read_bytes()).decode("utf-8")
-                return f"data:image/png;base64,{b64}"
+                return f"data:image/{mime};base64,{b64}"
     return ""
 
 
@@ -24,9 +26,10 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击折纸小屋唤醒花仙子，出屋后她会提起水壶；移动鼠标并点击/按住左键向左倾倒浇水，见证草木生长、多造型折纸花绽放与蝶鸟归来。"
+        "点击蘑菇屋的拱形木门唤醒花仙子，出屋后她会提起水壶；移动鼠标并点击/按住左键向左倾倒浇水，唤醒草地上的立体折纸花草与蝶鸟。"
     )
 
+    bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
     fairy_data_uri = load_asset_data_uri(["fairy.PNG", "fairy.png"])
     bucket_data_uri = load_asset_data_uri(["bucket.PNG", "bucket.png"])
 
@@ -47,33 +50,39 @@ def render():
         canvas {{
           display: block;
           border-radius: 14px;
-          box-shadow: 0 8px 24px rgba(60, 50, 40, 0.12);
+          box-shadow: 0 8px 24px rgba(60, 50, 40, 0.14);
         }}
       </style>
     </head>
     <body>
     <script>
+      const BG_IMG_DATA = "{bg_data_uri}";
       const FAIRY_IMG_DATA = "{fairy_data_uri}";
       const BUCKET_IMG_DATA = "{bucket_data_uri}";
+
+      let bgImg = null;
       let fairyImg = null;
       let bucketImg = null;
 
-      let sceneState = "HOUSE_CLOSED";
-      let doorProgress = 0;
+      let sceneState = "HOUSE_CLOSED"; // HOUSE_CLOSED -> SPRITE_EMERGING -> GARDEN_ACTIVE
+      let doorGlow = 0;
       let sprite;
-      let house;
-      let tree;
       let grassBlades = [];
       let flowers = [];
       let waterDrops = [];
       let ripples = [];
       let butterflies = [];
       let birds = [];
-      let bgHills = [];
+      let gardenVitality = 0;
 
-      const GROUND_Y = 440;
+      // 对齐背景图中蘑菇小屋拱形门洞中心坐标（860x560画布下）
+      const DOOR_X = 576;
+      const DOOR_Y = 328;
 
       function preload() {{
+        if (BG_IMG_DATA && BG_IMG_DATA.length > 0) {{
+          bgImg = loadImage(BG_IMG_DATA);
+        }}
         if (FAIRY_IMG_DATA && FAIRY_IMG_DATA.length > 0) {{
           fairyImg = loadImage(FAIRY_IMG_DATA);
         }}
@@ -83,86 +92,106 @@ def render():
       }}
 
       function setup() {{
-        createCanvas(860, 540);
+        createCanvas(860, 560);
         angleMode(RADIANS);
 
-        bgHills = [
-          {{ yBase: 360, amp: 45, freq: 0.004, color: '#e4dfd3', offset: 0 }},
-          {{ yBase: 395, amp: 30, freq: 0.007, color: '#d7d8c9', offset: 120 }}
+        // 花仙子初始从拱形门洞内部飞出
+        sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
+
+        // 在背景图草地空白区域布置可生长的立体折纸小草（避开荷花池与石子路）
+        const grassZones = [
+          {{ x1: 255, x2: 395, y1: 475, y2: 535 }},
+          {{ x1: 405, x2: 560, y1: 480, y2: 535 }},
+          {{ x1: 590, x2: 735, y1: 445, y2: 525 }},
+          {{ x1: 710, x2: 815, y1: 390, y2: 455 }}
         ];
-
-        house = new OrigamiHouse(135, GROUND_Y);
-        sprite = new OrigamiSprite(house.x, house.y - 45);
-        tree = new OrigamiTree(675, GROUND_Y);
-
-        for (let x = 230; x < 830; x += 14) {{
-          grassBlades.push(new OrigamiGrass(x + random(-4, 4), GROUND_Y + random(-2, 6)));
+        for (let z of grassZones) {{
+          for (let x = z.x1; x <= z.x2; x += 22) {{
+            grassBlades.push(new OrigamiGrass(x + random(-5, 5), random(z.y1, z.y2)));
+          }}
         }}
 
-        const flowerTypes = ['pinwheel', 'lotus', 'tulip'];
-        const flowerSpots = [265, 315, 365, 420, 475, 525, 580, 755, 805];
-        flowerSpots.forEach((fx, idx) => {{
-          let fType = flowerTypes[idx % flowerTypes.length];
-          flowers.push(new OrigamiFlower(fx, GROUND_Y + random(2, 10), fType));
-        }});
+        // 在草地前景与右侧花园布置 3 种不同造型的立体折纸花朵
+        const flowerConfigs = [
+          {{ x: 295, y: 515, type: 'pinwheel' }},
+          {{ x: 355, y: 502, type: 'lotus' }},
+          {{ x: 425, y: 522, type: 'tulip' }},
+          {{ x: 545, y: 505, type: 'pinwheel' }},
+          {{ x: 615, y: 492, type: 'lotus' }},
+          {{ x: 675, y: 512, type: 'tulip' }},
+          {{ x: 745, y: 445, type: 'pinwheel' }},
+          {{ x: 795, y: 425, type: 'lotus' }}
+        ];
+        for (let cfg of flowerConfigs) {{
+          flowers.push(new OrigamiFlower(cfg.x, cfg.y, cfg.type));
+        }}
       }}
 
       function draw() {{
-        background('#f7f2e7');
-        drawPaperTexture();
-        drawSunCorner();
-        drawHills();
+        // 1. 绘制你的纸片拼贴背景图
+        if (bgImg) {{
+          imageMode(CORNER);
+          image(bgImg, 0, 0, width, height);
+        }} else {{
+          background('#f7f2e7');
+        }}
 
-        setPaperShadow(10, 0, -3, 'rgba(50, 60, 40, 0.12)');
-        noStroke();
-        fill('#e5dec9');
-        rect(0, GROUND_Y, width, height - GROUND_Y);
-        clearShadow();
+        // 2. 小屋拱形门洞唤醒微光提示（未开门前呼吸闪烁）
+        drawDoorPortal();
 
-        tree.update();
-        tree.display();
-
-        house.update();
-        house.display();
-
+        // 3. 更新并绘制可生长的立体折纸小草
         for (let g of grassBlades) {{
           g.update();
           g.display();
         }}
 
+        // 4. 更新并绘制多种立体折纸花朵
         let bloomedCount = 0;
+        let totalBloom = 0;
         for (let f of flowers) {{
           f.update();
           f.display();
-          if (f.bloom > 0.75) bloomedCount++;
+          totalBloom += f.bloom;
+          if (f.bloom > 0.72) bloomedCount++;
         }}
+        gardenVitality = totalBloom / flowers.length;
 
-        if (bloomedCount >= 4 && butterflies.length < 6 && frameCount % 45 === 0) {{
-          let sourceFlower = random(flowers.filter(f => f.bloom > 0.75));
+        // 5. 花朵陆续开放后，召唤折纸蝴蝶在花丛与池塘上方飞舞
+        if (bloomedCount >= 3 && butterflies.length < 6 && frameCount % 45 === 0) {{
+          let sourceFlower = random(flowers.filter(f => f.bloom > 0.72));
           if (sourceFlower) {{
             butterflies.push(new OrigamiButterfly(sourceFlower.x, sourceFlower.y - sourceFlower.stemHeight));
           }}
         }}
-        if (tree.growth > 0.85 && birds.length < 2 && frameCount % 90 === 0) {{
-          let perch = tree.getPerchPoint(birds.length);
-          birds.push(new OrigamiBird(-30, random(110, 200), perch.x, perch.y));
+
+        // 6. 花园活力达到一定程度后，折纸小鸟飞入并停落在左右两棵剪纸大树枝头
+        if (gardenVitality > 0.55 && birds.length < 2 && frameCount % 90 === 0) {{
+          const treePerches = [
+            {{ x: 112, y: 205 }}, // 左侧绿色剪纸大树枝头
+            {{ x: 748, y: 195 }}  // 右侧黄绿色剪纸大树枝头
+          ];
+          let perch = treePerches[birds.length];
+          birds.push(new OrigamiBird(birds.length === 0 ? -30 : width + 30, random(90, 160), perch.x, perch.y));
         }}
 
+        // 7. 绘制水波纹（落在草地或荷花池水面都会激起涟漪）
         for (let i = ripples.length - 1; i >= 0; i--) {{
           ripples[i].update();
           ripples[i].display();
           if (ripples[i].alpha <= 0) ripples.splice(i, 1);
         }}
 
+        // 8. 绘制折纸水滴下落与碰撞
         for (let i = waterDrops.length - 1; i >= 0; i--) {{
           waterDrops[i].update();
           waterDrops[i].display();
-          if (waterDrops[i].y >= GROUND_Y) {{
-            triggerWaterImpact(waterDrops[i].x, GROUND_Y);
+          if (waterDrops[i].y >= waterDrops[i].targetGroundY) {{
+            triggerWaterImpact(waterDrops[i].x, waterDrops[i].y);
             waterDrops.splice(i, 1);
           }}
         }}
 
+        // 9. 绘制折纸蝴蝶与小鸟
         for (let b of butterflies) {{
           b.update();
           b.display();
@@ -172,13 +201,16 @@ def render():
           bird.display();
         }}
 
+        // 10. 按住鼠标持续浇水
         if (sceneState === "GARDEN_ACTIVE" && mouseIsPressed && frameCount % 7 === 0) {{
           sprite.pourWater();
         }}
 
+        // 11. 更新并绘制花仙子与左侧水壶
         sprite.update();
         sprite.display();
 
+        // 12. 顶部半透明纸条提示栏
         drawHUD(bloomedCount);
       }}
 
@@ -193,22 +225,42 @@ def render():
       function triggerWaterImpact(wx, wy) {{
         ripples.push(new PaperRipple(wx, wy));
 
+        // 唤醒附近小草
         for (let g of grassBlades) {{
-          if (abs(g.x - wx) < 85) {{
+          if (dist(g.x, g.y, wx, wy) < 105) {{
             g.targetGrowth = min(1, g.targetGrowth + 0.55);
           }}
         }}
+        // 唤醒附近花朵
         for (let f of flowers) {{
-          if (abs(f.x - wx) < 95) {{
+          if (dist(f.x, f.y, wx, wy) < 115) {{
             f.targetBloom = min(1, f.targetBloom + 0.45);
           }}
         }}
-        if (abs(tree.x - wx) < 160) {{
-          tree.targetGrowth = min(1, tree.targetGrowth + 0.35);
-        }}
       }}
 
-      function setPaperShadow(blur = 8, ox = 3, oy = 5, col = 'rgba(45, 40, 35, 0.2)') {{
+      function drawDoorPortal() {{
+        push();
+        translate(DOOR_X, DOOR_Y);
+        if (sceneState === "HOUSE_CLOSED") {{
+          let pulse = sin(frameCount * 0.08) * 0.5 + 0.5;
+          noStroke();
+          fill(255, 238, 170, 70 + pulse * 85);
+          ellipse(0, 0, 44 + pulse * 10, 62 + pulse * 10);
+
+          // 门前浮动小光点提示
+          fill(255, 250, 220, 180 + pulse * 75);
+          circle(0, -10 + sin(frameCount * 0.06) * 4, 7);
+        }} else {{
+          doorGlow = lerp(doorGlow, 1, 0.05);
+          noStroke();
+          fill(255, 240, 185, (1 - doorGlow) * 140);
+          ellipse(0, 0, 50 + doorGlow * 40, 68 + doorGlow * 40);
+        }}
+        pop();
+      }}
+
+      function setPaperShadow(blur = 8, ox = 3, oy = 5, col = 'rgba(45, 40, 35, 0.22)') {{
         drawingContext.shadowBlur = blur;
         drawingContext.shadowColor = col;
         drawingContext.shadowOffsetX = ox;
@@ -221,116 +273,28 @@ def render():
         drawingContext.shadowOffsetY = 0;
       }}
 
-      function drawPaperTexture() {{
-        stroke(180, 170, 155, 25);
-        strokeWeight(1);
-        for (let i = 0; i < width; i += 28) {{
-          line(i, 0, i - 18, height);
-        }}
-        noStroke();
-      }}
-
-      function drawSunCorner() {{
-        push();
-        translate(780, 75);
-        setPaperShadow(12, 2, 4, 'rgba(220, 160, 50, 0.25)');
-        fill('#fbd36b');
-        beginShape();
-        for (let i = 0; i < 12; i++) {{
-          let r = i % 2 === 0 ? 42 : 28;
-          let a = (TWO_PI / 12) * i + frameCount * 0.004;
-          vertex(cos(a) * r, sin(a) * r);
-        }}
-        endShape(CLOSE);
-        fill('#ffe599');
-        triangle(0, 0, -20, -18, 12, -25);
-        clearShadow();
-        pop();
-      }}
-
-      function drawHills() {{
-        for (let h of bgHills) {{
-          setPaperShadow(10, 0, -2, 'rgba(60, 60, 60, 0.08)');
-          fill(h.color);
-          beginShape();
-          vertex(0, height);
-          for (let x = 0; x <= width; x += 60) {{
-            let y = h.yBase - abs(sin(x * h.freq + h.offset)) * h.amp;
-            vertex(x, y);
-          }}
-          vertex(width, height);
-          endShape(CLOSE);
-        }}
-        clearShadow();
-      }}
-
       function drawHUD(bloomedCount) {{
         push();
-        fill(65, 58, 50, 210);
+        // 柔和的米白半透明剪纸标签底框，确保在蓝色天空背景上文字清晰
+        setPaperShadow(8, 0, 3, 'rgba(50, 60, 70, 0.14)');
+        fill(252, 249, 242, 225);
         noStroke();
-        textSize(14);
+        rect(18, 14, 595, 34, 17);
+        clearShadow();
+
+        fill(65, 58, 50, 235);
+        textSize(13.5);
         textAlign(LEFT, CENTER);
         let msg = "";
         if (sceneState === "HOUSE_CLOSED") {{
-          msg = "✨ 点击画面任意处，打开折纸小屋让小精灵飞出来";
+          msg = "✨ 点击画面（或蘑菇屋的拱形木门），唤醒花仙子飞出花园";
         }} else if (sceneState === "SPRITE_EMERGING") {{
-          msg = "🧚 小精灵正在飞出小屋并拿起水壶...";
+          msg = "🧚 花仙子正在飞出蘑菇屋并提起水壶...";
         }} else {{
-          msg = `🪣 移动鼠标引导小精灵，点击或长按左键倾倒浇水（已绽放花朵: ${{bloomedCount}}/${{flowers.length}}）`;
+          msg = `🪣 移动鼠标引导花仙子，点击/按住左键向左倾倒浇水（已唤醒折纸花: ${{bloomedCount}}/${{flowers.length}}）`;
         }}
-        text(msg, 24, 28);
+        text(msg, 34, 31);
         pop();
-      }}
-
-      class OrigamiHouse {{
-        constructor(x, y) {{
-          this.x = x;
-          this.y = y;
-        }}
-        update() {{
-          if (sceneState !== "HOUSE_CLOSED") {{
-            doorProgress = lerp(doorProgress, 1, 0.06);
-            if (sceneState === "SPRITE_EMERGING" && doorProgress > 0.88) {{
-              sprite.emergeTo(340, 220);
-            }}
-          }}
-        }}
-        display() {{
-          push();
-          translate(this.x, this.y);
-          setPaperShadow(12, 4, 6);
-
-          fill('#fffaf0');
-          quad(-55, 0, 0, 0, 0, -75, -55, -75);
-          fill('#efe6d5');
-          quad(0, 0, 55, 0, 55, -75, 0, -75);
-
-          fill('#ffdf85');
-          rect(-18, -52, 36, 52);
-
-          let foldScale = cos(doorProgress * PI * 0.65);
-          fill('#d98a6c');
-          push();
-          translate(-18, 0);
-          scale(foldScale, 1);
-          rect(0, -52, 18, 52);
-          pop();
-
-          fill('#c67456');
-          push();
-          translate(18, 0);
-          scale(foldScale, 1);
-          rect(-18, -52, 18, 52);
-          pop();
-
-          fill('#e06d53');
-          triangle(-72, -75, 0, -135, 0, -75);
-          fill('#c8563d');
-          triangle(0, -135, 72, -75, 0, -75);
-
-          clearShadow();
-          pop();
-        }}
       }}
 
       // ================== 铃兰花仙子小精灵 + 左侧手持水壶（向左倾斜45度浇水） ==================
@@ -354,7 +318,7 @@ def render():
           this.visible = true;
           this.targetX = tx;
           this.targetY = ty;
-          if (dist(this.x, this.y, tx, ty) < 18) {{
+          if (dist(this.x, this.y, tx, ty) < 20) {{
             sceneState = "GARDEN_ACTIVE";
             this.hasBucket = true;
           }}
@@ -362,20 +326,24 @@ def render():
         pourWater() {{
           if (!this.hasBucket) return;
           this.pourTimer = 14;
-          // 从左侧水壶倾倒后的壶嘴位置洒出水滴
+          // 从左侧水壶倾倒后的壶嘴位置洒出水滴，落点在花仙子下方草地/池塘高度
           let spoutX = this.x - 36;
-          let spoutY = this.y + 22;
+          let spoutY = this.y + 20;
+          let dropLandY = constrain(this.y + random(135, 195), 375, 540);
           for (let i = 0; i < 2; i++) {{
-            waterDrops.push(new PaperWaterDrop(spoutX + random(-8, 6), spoutY + random(-4, 4)));
+            waterDrops.push(new PaperWaterDrop(spoutX + random(-8, 6), spoutY + random(-4, 4), dropLandY));
           }}
         }}
         update() {{
+          if (sceneState === "SPRITE_EMERGING") {{
+            this.emergeTo(430, 270);
+          }}
           if (!this.visible) return;
           this.scaleVal = lerp(this.scaleVal, 1, 0.08);
 
           if (sceneState === "GARDEN_ACTIVE") {{
-            this.targetX = constrain(mouseX, 60, width - 60);
-            this.targetY = constrain(mouseY, 70, GROUND_Y - 70);
+            this.targetX = constrain(mouseX, 75, width - 75);
+            this.targetY = constrain(mouseY, 80, 395);
           }}
 
           let hoverY = sin(frameCount * 0.07) * 5;
@@ -389,13 +357,12 @@ def render():
           }}
           if (this.pourTimer > 0) {{
             this.pourTimer--;
-            // 负数代表逆时针（向左）倾斜 45 度（-PI / 4）
-            this.bucketTilt = lerp(this.bucketTilt, -PI / 4, 0.25);
+            this.bucketTilt = lerp(this.bucketTilt, -PI / 4, 0.25); // 向左倾斜45度
           }} else {{
             this.bucketTilt = lerp(this.bucketTilt, sin(frameCount * 0.1) * 0.07, 0.15);
           }}
 
-          this.trail.push({{ x: this.x, y: this.y + 12, alpha: 170 }});
+          this.trail.push({{ x: this.x, y: this.y + 12, alpha: 175 }});
           if (this.trail.length > 14) this.trail.shift();
         }}
         display() {{
@@ -404,8 +371,8 @@ def render():
           noStroke();
           for (let t of this.trail) {{
             t.alpha -= 11;
-            fill(215, 238, 205, max(0, t.alpha));
-            circle(t.x, t.y, map(t.alpha, 0, 170, 2, 7));
+            fill(255, 250, 225, max(0, t.alpha));
+            circle(t.x, t.y, map(t.alpha, 0, 175, 2, 7));
           }}
 
           push();
@@ -413,12 +380,12 @@ def render():
           rotate(constrain(this.vx * 0.03, -0.22, 0.22));
           let breathX = 1 + sin(frameCount * 0.22) * 0.035;
           scale(this.scaleVal * breathX, this.scaleVal);
-          setPaperShadow(12, 3, 6, 'rgba(65, 75, 60, 0.22)');
+          setPaperShadow(12, 3, 6, 'rgba(55, 65, 50, 0.26)');
 
           // 1. 绘制花仙子主体
           if (fairyImg) {{
             imageMode(CENTER);
-            let drawH = 104;
+            let drawH = 106;
             let drawW = drawH * (fairyImg.width / fairyImg.height);
             image(fairyImg, 0, 0, drawW, drawH);
           }} else {{
@@ -426,16 +393,16 @@ def render():
             circle(0, 0, 40);
           }}
 
-          // 2. 出屋后在花仙子左边（x: -22, y: +16）绘制水桶，浇水时向左倾斜 45 度
+          // 2. 出屋后在花仙子左边绘制水壶，浇水时向左倾斜 45 度
           if (this.hasBucket && this.bucketScale > 0.05) {{
             push();
-            translate(-22, 16); // 水桶放在小精灵左边手部位置（可微调此坐标）
+            translate(-22, 16);
             scale(this.bucketScale);
             rotate(this.bucketTilt);
 
             if (bucketImg) {{
               imageMode(CENTER);
-              let bH = 34; // 水桶高度大小
+              let bH = 35;
               let bW = bH * (bucketImg.width / bucketImg.height);
               image(bucketImg, -2, 6, bW, bH);
             }} else {{
@@ -443,8 +410,6 @@ def render():
               stroke('#6b655c');
               strokeWeight(1.2);
               quad(-9, 0, 9, 0, 6, 18, -6, 18);
-              noFill();
-              arc(0, 0, 16, 14, PI, TWO_PI);
             }}
             pop();
           }}
@@ -455,11 +420,12 @@ def render():
       }}
 
       class PaperWaterDrop {{
-        constructor(x, y) {{
+        constructor(x, y, targetGroundY) {{
           this.x = x;
           this.y = y;
+          this.targetGroundY = targetGroundY;
           this.vy = random(3.5, 5.5);
-          this.vx = random(-1.8, -0.6); // 随向左倾倒的水桶向左下方抛洒水滴
+          this.vx = random(-1.8, -0.6); // 随向左倾倒的水壶向左下方抛洒
           this.rot = random(-0.2, 0.2);
         }}
         update() {{
@@ -485,7 +451,7 @@ def render():
           this.x = x;
           this.y = y;
           this.r = 6;
-          this.alpha = 200;
+          this.alpha = 210;
         }}
         update() {{
           this.r += 2.2;
@@ -494,8 +460,8 @@ def render():
         display() {{
           push();
           noFill();
-          stroke(110, 185, 215, this.alpha);
-          strokeWeight(2);
+          stroke(100, 180, 215, this.alpha);
+          strokeWeight(2.2);
           ellipse(this.x, this.y, this.r * 2, this.r * 0.45);
           pop();
         }}
@@ -507,7 +473,7 @@ def render():
           this.y = y;
           this.growth = 0.08;
           this.targetGrowth = 0.08;
-          this.maxH = random(24, 42);
+          this.maxH = random(22, 36);
           this.lean = random(-0.22, 0.22);
         }}
         update() {{
@@ -518,11 +484,13 @@ def render():
           let sway = sin(frameCount * 0.04 + this.x * 0.1) * 3 * this.growth;
           push();
           translate(this.x, this.y);
+          setPaperShadow(4, 1, 2, 'rgba(40, 50, 30, 0.16)');
           noStroke();
-          fill(this.growth > 0.3 ? '#8ec472' : '#d2ccb8');
+          fill(this.growth > 0.3 ? '#6ab04c' : '#d5d2be');
           triangle(-5, 0, 0, 0, this.lean * 20 + sway, -h);
-          fill(this.growth > 0.3 ? '#72a858' : '#c0b9a4');
+          fill(this.growth > 0.3 ? '#529438' : '#c2bfa9');
           triangle(0, 0, 5, 0, this.lean * 20 + sway, -h);
+          clearShadow();
           pop();
         }}
       }}
@@ -534,7 +502,7 @@ def render():
           this.type = type;
           this.bloom = 0.05;
           this.targetBloom = 0.05;
-          this.stemHeight = random(58, 92);
+          this.stemHeight = random(48, 72);
 
           const palettes = {{
             pinwheel: ['#f28482', '#e06361', '#ffe5d9'],
@@ -552,33 +520,33 @@ def render():
 
           push();
           translate(this.x, this.y);
+          setPaperShadow(6, 2, 3, 'rgba(40, 50, 30, 0.18)');
 
-          stroke(this.bloom > 0.25 ? '#6a994e' : '#bfb8a5');
+          stroke(this.bloom > 0.25 ? '#588b3e' : '#bfb8a5');
           strokeWeight(3);
           line(0, 0, sway, -curH);
           noStroke();
 
           if (this.bloom > 0.3) {{
             let leafScale = map(this.bloom, 0.3, 1, 0, 1);
-            fill('#80b960');
+            fill('#72ac53');
             push();
             translate(sway * 0.5, -curH * 0.45);
             scale(leafScale);
-            triangle(0, 0, -18, -8, -10, 4);
-            triangle(0, 0, 18, -10, 10, 2);
+            triangle(0, 0, -16, -7, -9, 4);
+            triangle(0, 0, 16, -9, 9, 2);
             pop();
           }}
 
           translate(sway, -curH);
-          setPaperShadow(8, 2, 4, 'rgba(50, 40, 35, 0.18)');
 
           if (this.bloom <= 0.22) {{
-            fill('#ede6d6');
-            triangle(-6, 0, 0, -14, 0, 0);
-            fill('#dcd3c0');
-            triangle(6, 0, 0, -14, 0, 0);
+            fill('#f3ede0');
+            triangle(-6, 0, 0, -13, 0, 0);
+            fill('#e2dac9');
+            triangle(6, 0, 0, -13, 0, 0);
           }} else {{
-            let s = map(this.bloom, 0.22, 1, 0.2, 1.05);
+            let s = map(this.bloom, 0.22, 1, 0.2, 1.0);
             scale(s);
             if (this.type === 'pinwheel') {{
               this.drawPinwheel();
@@ -599,9 +567,9 @@ def render():
             push();
             rotate(HALF_PI * i);
             fill(this.colors[0]);
-            triangle(0, 0, 0, -24, 16, -14);
+            triangle(0, 0, 0, -22, 15, -13);
             fill(this.colors[1]);
-            triangle(0, 0, 16, -14, 12, 0);
+            triangle(0, 0, 15, -13, 11, 0);
             pop();
           }}
           fill(this.colors[2]);
@@ -613,84 +581,35 @@ def render():
             push();
             rotate((TWO_PI / 6) * i);
             fill(this.colors[0]);
-            triangle(0, 0, -8, -16, 0, -26);
+            triangle(0, 0, -7, -15, 0, -24);
             fill(this.colors[1]);
-            triangle(0, 0, 8, -16, 0, -26);
+            triangle(0, 0, 7, -15, 0, -24);
             pop();
           }}
           for (let i = 0; i < 6; i++) {{
             push();
             rotate((TWO_PI / 6) * i + PI / 6);
             fill(this.colors[2]);
-            triangle(0, 0, -5, -10, 0, -16);
+            triangle(0, 0, -5, -9, 0, -15);
             pop();
           }}
         }}
 
         drawTulip() {{
           fill(this.colors[1]);
-          triangle(-14, -8, 0, -26, 0, 4);
-          triangle(14, -8, 0, -26, 0, 4);
+          triangle(-13, -7, 0, -24, 0, 4);
+          triangle(13, -7, 0, -24, 0, 4);
           fill(this.colors[0]);
           beginShape();
-          vertex(0, 6);
-          vertex(-15, -6);
-          vertex(-13, -24);
-          vertex(-5, -15);
-          vertex(0, -26);
-          vertex(5, -15);
-          vertex(13, -24);
-          vertex(15, -6);
+          vertex(0, 5);
+          vertex(-14, -5);
+          vertex(-12, -22);
+          vertex(-4, -14);
+          vertex(0, -24);
+          vertex(4, -14);
+          vertex(12, -22);
+          vertex(14, -5);
           endShape(CLOSE);
-        }}
-      }}
-
-      class OrigamiTree {{
-        constructor(x, y) {{
-          this.x = x;
-          this.y = y;
-          this.growth = 0.12;
-          this.targetGrowth = 0.12;
-        }}
-        update() {{
-          this.growth = lerp(this.growth, this.targetGrowth, 0.05);
-        }}
-        getPerchPoint(index) {{
-          return index === 0
-            ? {{ x: this.x - 42, y: this.y - 168 }}
-            : {{ x: this.x + 38, y: this.y - 205 }};
-        }}
-        display() {{
-          push();
-          translate(this.x, this.y);
-          setPaperShadow(12, 4, 6);
-
-          let trunkH = lerp(55, 155, this.growth);
-          fill('#9c7a5b');
-          quad(-14, 0, 0, 0, 0, -trunkH, -8, -trunkH);
-          fill('#7f6044');
-          quad(0, 0, 14, 0, 8, -trunkH, 0, -trunkH);
-
-          const tiers = [
-            {{ yOff: -trunkH + 15, w: 85, h: 85, c1: '#74b466', c2: '#5a964e', thresh: 0.2 }},
-            {{ yOff: -trunkH - 35, w: 68, h: 75, c1: '#88c776', c2: '#6ba85b', thresh: 0.45 }},
-            {{ yOff: -trunkH - 80, w: 48, h: 62, c1: '#a3d98e', c2: '#82ba6e', thresh: 0.7 }}
-          ];
-
-          for (let t of tiers) {{
-            let s = constrain(map(this.growth, t.thresh - 0.2, t.thresh + 0.15, 0.15, 1), 0.15, 1);
-            push();
-            translate(0, t.yOff);
-            scale(s);
-            fill(this.growth > 0.25 ? t.c1 : '#dcd5c4');
-            triangle(-t.w, 0, 0, -t.h, 0, 0);
-            fill(this.growth > 0.25 ? t.c2 : '#cbc3b0');
-            triangle(0, -t.h, t.w, 0, 0, 0);
-            pop();
-          }}
-
-          clearShadow();
-          pop();
         }}
       }}
 
@@ -707,7 +626,7 @@ def render():
           this.x += map(noise(this.seed), 0, 1, -2.2, 2.4);
           this.y += map(noise(this.seed + 50), 0, 1, -2.0, 1.6);
           this.x = constrain(this.x, 80, width - 60);
-          this.y = constrain(this.y, 80, GROUND_Y - 35);
+          this.y = constrain(this.y, 80, 440);
         }}
         display() {{
           let flap = cos(frameCount * 0.28 + this.seed * 10);
@@ -785,4 +704,4 @@ def render():
     </html>
     """
 
-    components.html(p5_html, height=560)
+    components.html(p5_html, height=580)
