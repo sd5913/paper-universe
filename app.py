@@ -1,7 +1,7 @@
 
 import streamlit as st
 
-from modules import weather, living, secret, experience
+from modules import weather, living, secret, experience, crystal_cavern
 
 st.set_page_config(
     page_title="Paper Universe",
@@ -21,6 +21,7 @@ world = st.sidebar.radio(
         "Weather World",
         "Living World",
         "Secret World",
+        "Crystal Cavern",
         "World Experience",
     ],
 )
@@ -42,6 +43,9 @@ elif world == "Living World":
 
 elif world == "Secret World":
     secret.render()
+
+elif world == "Crystal Cavern":
+    crystal_cavern.render()
 
 elif world == "World Experience":
     experience.render()
