@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>折光之森 — 水晶洞窟 (Scene 3)</title>
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <script src="js/p5.min.js?v=3"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="err" style="position:fixed;top:0;left:0;right:0;background:#300;color:#f88;padding:8px 16px;font:13px monospace;display:none;z-index:9999;white-space:pre-wrap;"></div>
+  <script>
+    window.addEventListener('error', function(e) {
+      var d = document.getElementById('err');
+      if (d) {
+        d.style.display = 'block';
+        d.textContent += (d.textContent ? '\n' : '') + 'JS ERROR: ' + e.message +
+          (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '');
+      }
+    });
+  </script>
+  <footer>
+    <b>拖拽元素</b> 合成新物质 ·
+    <b>H</b> 帮助 ·
+    <b>B</b> 配方图鉴 ·
+    <b>R</b> 重置
+  </footer>
+  <script src="js/config.js?v=3"></script>
+  <script src="js/audio.js?v=3"></script>
+  <script src="js/texture.js?v=3"></script>
+  <script src="js/cavern.js?v=3"></script>
+  <script src="js/sketch.js?v=3"></script>
+</body>
+</html>

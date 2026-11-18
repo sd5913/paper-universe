@@ -1,0 +1,48 @@
+:root {
+  --paper:        #FDFBF5;
+  --paper-deep:   #E8E0D0;
+  --ink:          #3D3833;
+  --ink-soft:     #7A7268;
+  --accent:       #C77DFF;
+  --accent-warm:  #FFB84D;
+  --shadow:       rgba(0, 0, 0, 0.07);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0d0d2a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: Georgia, 'Times New Roman', serif;
+  overflow: hidden;
+}
+
+#app {
+  position: relative;
+}
+
+canvas {
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(199, 125, 255, 0.15);
+}
+
+footer {
+  margin-top: 12px;
+  color: #6a6a8a;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+footer b {
+  color: #C77DFF;
+  font-weight: 600;
+}
