@@ -33,7 +33,6 @@ def render():
     fairy_data_uri = load_asset_data_uri(["fairy.PNG", "fairy.png"])
     bucket_data_uri = load_asset_data_uri(["bucket.PNG", "bucket.png"])
 
-    # 加载自定义花朵与蘑菇图片
     f1_uri = load_asset_data_uri(["flower1.png", "flower1.PNG"])
     f2_uri = load_asset_data_uri(["flower2.png", "flower2.PNG"])
     f3_uri = load_asset_data_uri(["flower3.png", "flower3.PNG"])
@@ -79,7 +78,7 @@ def render():
       let doorGlow = 0;
       let sprite;
       let grassBlades = [];
-      let plants = []; // 统一管理所有花朵与蘑菇
+      let plants = [];
       let waterDrops = [];
       let ripples = [];
       let butterflies = [];
@@ -108,31 +107,39 @@ def render():
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
 
-        // 草地区域（避开荷花池与石子路）
+        // 1. 避开石头小路的 4 片草地区域（含左下水池旁与左右大树旁）
         const grassZones = [
-          {{ x1: 255, x2: 395, y1: 475, y2: 535 }},
-          {{ x1: 405, x2: 560, y1: 480, y2: 535 }},
-          {{ x1: 590, x2: 735, y1: 445, y2: 525 }},
-          {{ x1: 710, x2: 815, y1: 390, y2: 455 }}
+          {{ x1: 55,  x2: 225, y1: 470, y2: 538 }}, // 左下角水池旁 & 左树下
+          {{ x1: 340, x2: 412, y1: 465, y2: 538 }}, // 水池与石头小路之间的左侧草地
+          {{ x1: 340, x2: 400, y1: 338, y2: 362 }}, // 中间大树树干旁
+          {{ x1: 615, x2: 825, y1: 385, y2: 535 }}  // 石头小路右侧 & 右边大树下
         ];
         for (let z of grassZones) {{
           for (let x = z.x1; x <= z.x2; x += 22) {{
-            grassBlades.push(new OrigamiGrass(x + random(-5, 5), random(z.y1, z.y2)));
+            grassBlades.push(new OrigamiGrass(x + random(-4, 4), random(z.y1, z.y2)));
           }}
         }}
 
-        // 布置花朵与蘑菇点位（kind: 'flower' 或 'mushroom'）
+        // 2. 花朵与蘑菇坐标（覆盖左下水池旁、三棵树旁，完全避开中间 x:420~605 的石头小路）
         const plantConfigs = [
-          {{ x: 285, y: 515, kind: 'flower', variant: 0 }},
-          {{ x: 332, y: 532, kind: 'mushroom', variant: 0 }},
-          {{ x: 375, y: 500, kind: 'flower', variant: 1 }},
-          {{ x: 430, y: 525, kind: 'flower', variant: 2 }},
-          {{ x: 535, y: 512, kind: 'mushroom', variant: 1 }},
-          {{ x: 585, y: 495, kind: 'flower', variant: 0 }},
-          {{ x: 645, y: 518, kind: 'flower', variant: 1 }},
-          {{ x: 695, y: 492, kind: 'mushroom', variant: 0 }},
-          {{ x: 745, y: 450, kind: 'flower', variant: 2 }},
-          {{ x: 795, y: 425, kind: 'flower', variant: 0 }}
+          // --- 左下角水池旁 & 左边大树旁 ---
+          {{ x: 68,  y: 485, kind: 'flower',   variant: 0 }}, // 左树干左侧草地
+          {{ x: 115, y: 525, kind: 'flower',   variant: 1 }}, // 左下水池正下方
+          {{ x: 168, y: 512, kind: 'mushroom', variant: 0 }}, // 左下水池旁小蘑菇
+          {{ x: 215, y: 532, kind: 'flower',   variant: 2 }}, // 水池下缘偏右
+
+          // --- 中间大树旁 & 水池右侧（石头小路左边，x <= 410） ---
+          {{ x: 348, y: 355, kind: 'flower',   variant: 1 }}, // 中间大树左侧树根旁
+          {{ x: 402, y: 358, kind: 'mushroom', variant: 1 }}, // 中间大树右侧树根旁
+          {{ x: 362, y: 495, kind: 'flower',   variant: 0 }}, // 水池右边草地
+          {{ x: 405, y: 525, kind: 'flower',   variant: 2 }}, // 紧贴小路左侧边缘（不遮挡小路）
+
+          // --- 石头小路右侧 & 右边大树旁（x >= 615） ---
+          {{ x: 620, y: 495, kind: 'flower',   variant: 1 }}, // 小路右侧草地
+          {{ x: 668, y: 522, kind: 'mushroom', variant: 0 }}, // 右下草地蘑菇
+          {{ x: 715, y: 485, kind: 'flower',   variant: 2 }}, // 右侧花丛
+          {{ x: 755, y: 440, kind: 'flower',   variant: 0 }}, // 右边大树左下侧
+          {{ x: 812, y: 375, kind: 'flower',   variant: 1 }}  // 右边大树树干右侧
         ];
         for (let cfg of plantConfigs) {{
           plants.push(new CustomPlant(cfg.x, cfg.y, cfg.kind, cfg.variant));
@@ -299,7 +306,7 @@ def render():
           this.pourTimer = 14;
           let spoutX = this.x - 36;
           let spoutY = this.y + 20;
-          let dropLandY = constrain(this.y + random(135, 195), 375, 540);
+          let dropLandY = constrain(this.y + random(135, 195), 345, 540);
           for (let i = 0; i < 2; i++) {{
             waterDrops.push(new PaperWaterDrop(spoutX + random(-8, 6), spoutY + random(-4, 4), dropLandY));
           }}
@@ -312,7 +319,7 @@ def render():
           this.scaleVal = lerp(this.scaleVal, 1, 0.08);
 
           if (sceneState === "GARDEN_ACTIVE") {{
-            this.targetX = constrain(mouseX, 75, width - 75);
+            this.targetX = constrain(mouseX, 60, width - 60);
             this.targetY = constrain(mouseY, 80, 395);
           }}
 
@@ -463,12 +470,11 @@ def render():
         }}
       }}
 
-      // ================== 自定义花朵与蘑菇生长类 ==================
       class CustomPlant {{
         constructor(x, y, kind, variant) {{
           this.x = x;
           this.y = y;
-          this.kind = kind; // 'flower' | 'mushroom'
+          this.kind = kind;
           this.variant = variant;
           this.bloom = 0.05;
           this.targetBloom = 0.05;
@@ -483,7 +489,6 @@ def render():
           setPaperShadow(8, 2, 4, 'rgba(40, 50, 30, 0.22)');
 
           if (this.kind === 'mushroom') {{
-            // 蘑菇：未浇水时是地面小菌丝点，浇水后从根部向上弹出
             if (this.bloom <= 0.2) {{
               noStroke();
               fill('#efe8d8');
@@ -497,12 +502,10 @@ def render():
               let img = mushroomImgs.length > 0 ? mushroomImgs[this.variant % mushroomImgs.length] : null;
               if (img) {{
                 imageMode(CENTER);
-                let targetH = 44; // 蘑菇显示高度（可根据实际大小微调）
+                let targetH = 44;
                 let targetW = targetH * (img.width / img.height);
-                // 底部对齐地面 (0, 0)
                 image(img, 0, -targetH * 0.45, targetW, targetH);
               }} else {{
-                // 保底矢量小蘑菇
                 noStroke();
                 fill('#f7f1e3');
                 rect(-6, -20, 12, 20, 4);
@@ -511,7 +514,6 @@ def render():
               }}
             }}
           }} else {{
-            // 花朵：先长出绿色折纸花茎与叶子，顶端绽放你设计的花朵图片
             let curH = this.stemHeight * map(this.bloom, 0.05, 1, 0.22, 1);
             let sway = sin(frameCount * 0.035 + this.x) * 4 * this.bloom;
 
@@ -546,11 +548,10 @@ def render():
               let img = flowerImgs.length > 0 ? flowerImgs[this.variant % flowerImgs.length] : null;
               if (img) {{
                 imageMode(CENTER);
-                let targetH = 52; // 花朵显示高度（可根据实际大小微调）
+                let targetH = 52;
                 let targetW = targetH * (img.width / img.height);
                 image(img, 0, -targetH * 0.15, targetW, targetH);
               }} else {{
-                // 保底折纸花
                 for (let i = 0; i < 4; i++) {{
                   push();
                   rotate(HALF_PI * i);
