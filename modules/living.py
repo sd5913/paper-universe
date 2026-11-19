@@ -86,8 +86,8 @@ def render():
       let gardenVitality = 0;
       let hasWateredFlowers = false; // 记录是否已经开始给花朵浇水
 
-      const DOOR_X = 576;
-      const DOOR_Y = 328;
+      const DOOR_X = 562;
+      const DOOR_Y = 326;
 
       function preload() {{
         if (BG_IMG_DATA) bgImg = loadImage(BG_IMG_DATA);
