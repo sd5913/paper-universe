@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击蘑菇屋的拱形木门唤醒花仙子；出屋后点击草地上的水壶拾起，再点击左下角荷花池舀水，随后在草地上点击/按住左键倾倒浇水；浇完后点击手边的水壶即可放回地上。"
+        "点击蘑菇屋的拱形木门唤醒花仙子；点击荷花池可逗荷叶上的小青蛙跳跃，也能提起水壶舀水浇灌草地上的花朵与蘑菇。"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -41,6 +41,7 @@ def render():
 
     b1_uri = load_asset_data_uri(["bird1.png", "bird1.PNG", "bird.png", "bird.PNG"])
     b2_uri = load_asset_data_uri(["bird2.png", "bird2.PNG"])
+    frog_uri = load_asset_data_uri(["frog.png", "frog.PNG"])
 
     p5_html = f"""
     <!DOCTYPE html>
@@ -71,10 +72,12 @@ def render():
       const FLOWER_URIS = ["{f1_uri}", "{f2_uri}", "{f3_uri}"];
       const MUSHROOM_URIS = ["{m1_uri}", "{m2_uri}"];
       const BIRD_URIS = ["{b1_uri}", "{b2_uri}"];
+      const FROG_IMG_DATA = "{frog_uri}";
 
       let bgImg = null;
       let fairyImg = null;
       let bucketImg = null;
+      let frogImg = null;
       let flowerImgs = [];
       let mushroomImgs = [];
       let birdImgs = [];
@@ -82,6 +85,7 @@ def render():
       let sceneState = "HOUSE_CLOSED";
       let doorGlow = 0;
       let sprite;
+      let frog;
       let grassBlades = [];
       let plants = [];
       let waterDrops = [];
@@ -115,6 +119,7 @@ def render():
         if (BG_IMG_DATA) bgImg = loadImage(BG_IMG_DATA);
         if (FAIRY_IMG_DATA) fairyImg = loadImage(FAIRY_IMG_DATA);
         if (BUCKET_IMG_DATA) bucketImg = loadImage(BUCKET_IMG_DATA);
+        if (FROG_IMG_DATA) frogImg = loadImage(FROG_IMG_DATA);
 
         for (let uri of FLOWER_URIS) {{
           if (uri && uri.length > 0) flowerImgs.push(loadImage(uri));
@@ -132,6 +137,7 @@ def render():
         angleMode(RADIANS);
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
+        frog = new OrigamiFrog();
 
         const grassZones = [
           {{ x1: 55,  x2: 225, y1: 470, y2: 538 }},
@@ -243,6 +249,10 @@ def render():
           if (ripples[i].alpha <= 0) ripples.splice(i, 1);
         }}
 
+        // 绘制荷叶上的小青蛙
+        frog.update();
+        frog.display();
+
         for (let i = waterDrops.length - 1; i >= 0; i--) {{
           waterDrops[i].update();
           waterDrops[i].display();
@@ -294,7 +304,7 @@ def render():
         }}
         if (sprite.hasBucket && sprite.isPointOnBucket(mouseX, mouseY)) {{
           cursor(HAND);
-        }} else if (sprite.hasBucket && !sprite.bucketHasWater && isPointInPond(mouseX, mouseY)) {{
+        }} else if (isPointInPond(mouseX, mouseY)) {{
           cursor(HAND);
         }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
           cursor(HAND);
@@ -308,15 +318,27 @@ def render():
           sceneState = "SPRITE_EMERGING";
         }} else if (sceneState === "GARDEN_ACTIVE") {{
           if (sprite.hasBucket) {{
+            // 1. 点击手持水桶 -> 放在地上
             if (sprite.isPointOnBucket(mouseX, mouseY)) {{
               sprite.putBucketOnGround();
-            }} else if (isPointInPond(mouseX, mouseY)) {{
+            }}
+            // 2. 点击荷花池 -> 舀水 + 小青蛙在荷叶间跳跃
+            else if (isPointInPond(mouseX, mouseY)) {{
               sprite.scoopWater(mouseX, mouseY);
-            }} else if (sprite.bucketHasWater) {{
+              frog.jumpToNextPad();
+            }}
+            // 3. 已舀水后点击草地 -> 倾倒浇水
+            else if (sprite.bucketHasWater) {{
               sprite.pourWater();
             }}
-          }} else if (groundBucket) {{
-            if (dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 36) {{
+          }} else {{
+            // 4. 空手时点击水池 -> 小青蛙在荷叶上跳 + 激起水波纹
+            if (isPointInPond(mouseX, mouseY)) {{
+              ripples.push(new PaperRipple(mouseX, mouseY));
+              frog.jumpToNextPad();
+            }}
+            // 5. 空手时点击地上的水桶 -> 拾起水桶
+            else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 36) {{
               sprite.pickUpBucket();
             }}
           }}
@@ -408,6 +430,133 @@ def render():
         drawingContext.shadowBlur = 0;
         drawingContext.shadowOffsetX = 0;
         drawingContext.shadowOffsetY = 0;
+      }}
+
+      // ================== 荷叶上的剪纸小青蛙类 ==================
+      class OrigamiFrog {{
+        constructor() {{
+          // 精确对齐背景图荷花池中的 4 片绿色荷叶中心坐标
+          this.lilyPads = [
+            {{ x: 142, y: 372 }},
+            {{ x: 188, y: 356 }},
+            {{ x: 222, y: 396 }},
+            {{ x: 265, y: 378 }}
+          ];
+          this.padIndex = 0;
+          this.x = this.lilyPads[0].x;
+          this.y = this.lilyPads[0].y;
+          this.startX = this.x;
+          this.startY = this.y;
+          this.targetX = this.x;
+          this.targetY = this.y;
+
+          this.isJumping = false;
+          this.jumpT = 0;
+          this.jumpDuration = 26; // 每次跳跃帧数
+          this.facing = 1;
+          this.squash = 1;
+        }}
+        jumpToNextPad() {{
+          if (this.isJumping) return; // 正在跳跃时防连击抖动
+          this.startX = this.x;
+          this.startY = this.y;
+
+          // 按顺序轮流跳向下一片荷叶
+          this.padIndex = (this.padIndex + 1) % this.lilyPads.length;
+          let nextPad = this.lilyPads[this.padIndex];
+          this.targetX = nextPad.x;
+          this.targetY = nextPad.y;
+          this.facing = this.targetX >= this.startX ? 1 : -1;
+
+          this.isJumping = true;
+          this.jumpT = 0;
+          // 起跳时激起一圈水波纹
+          ripples.push(new PaperRipple(this.startX, this.startY + 4));
+        }}
+        update() {{
+          if (this.isJumping) {{
+            this.jumpT++;
+            let progress = constrain(this.jumpT / this.jumpDuration, 0, 1);
+            // 水平线性移动 + 垂直抛物线弧度
+            this.x = lerp(this.startX, this.targetX, progress);
+            let arcHeight = sin(progress * PI) * 34;
+            this.y = lerp(this.startY, this.targetY, progress) - arcHeight;
+
+            // 起跳拉长、落地压扁的Q弹形变
+            if (progress < 0.2) {{
+              this.squash = lerp(1, 1.22, progress / 0.2);
+            }} else if (progress > 0.85) {{
+              this.squash = lerp(1, 0.82, (progress - 0.85) / 0.15);
+            }} else {{
+              this.squash = lerp(this.squash, 1.05, 0.2);
+            }}
+
+            if (progress >= 1) {{
+              this.isJumping = false;
+              this.x = this.targetX;
+              this.y = this.targetY;
+              this.squash = 1;
+              // 落到荷叶上激起水波纹
+              ripples.push(new PaperRipple(this.x, this.y + 4));
+            }}
+          }} else {{
+            // 蹲坐时的轻柔呼吸微动
+            this.squash = 1 + sin(frameCount * 0.08) * 0.03;
+          }}
+        }}
+        display() {{
+          push();
+          translate(this.x, this.y);
+
+          // 荷叶上的阴影（跳得越高影子越小越淡）
+          let shadowScale = this.isJumping ? map(sin((this.jumpT / this.jumpDuration) * PI), 0, 1, 1, 0.45) : 1;
+          noStroke();
+          fill(40, 75, 45, 55 * shadowScale);
+          ellipse(0, 5, 22 * shadowScale, 7 * shadowScale);
+
+          scale(this.facing * (2 - this.squash), this.squash);
+          setPaperShadow(6, 1, 3, 'rgba(35, 65, 40, 0.24)');
+
+          if (frogImg) {{
+            imageMode(CENTER);
+            let targetH = 32;
+            let targetW = targetH * (frogImg.width / frogImg.height);
+            image(frogImg, 0, -targetH * 0.35, targetW, targetH);
+          }} else {{
+            // 纸片拼贴风格双色小青蛙
+            noStroke();
+            // 后腿折叠纸片
+            fill('#5e9c46');
+            triangle(-11, 2, -3, -6, -2, 3);
+            triangle(11, 2, 3, -6, 2, 3);
+
+            // 圆润身体（浅绿）
+            fill('#7bc45c');
+            ellipse(0, -5, 22, 16);
+            // 浅黄米色小肚皮
+            fill('#e9f5d8');
+            arc(0, -3, 14, 10, 0, PI);
+
+            // 两只凸起的大眼睛
+            fill('#7bc45c');
+            circle(-5, -13, 8);
+            circle(5, -13, 8);
+            fill('#ffffff');
+            circle(-5, -13, 5.5);
+            circle(5, -13, 5.5);
+            fill('#2f362c');
+            circle(-4.2, -13, 2.6);
+            circle(5.8, -13, 2.6);
+
+            // 腮红与微笑
+            fill('#f4a29e');
+            ellipse(-7, -8, 4, 2.2);
+            ellipse(7, -8, 4, 2.2);
+          }}
+
+          clearShadow();
+          pop();
+        }}
       }}
 
       class OrigamiSprite {{
