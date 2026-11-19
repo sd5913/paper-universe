@@ -276,15 +276,15 @@ def render():
           let pulse = sin(frameCount * 0.08) * 0.5 + 0.5;
           noStroke();
           fill(255, 238, 170, 70 + pulse * 85);
-          ellipse(0, 0, 44 + pulse * 10, 62 + pulse * 10);
+          circle(0, 0, 48 + pulse * 10); // 改为正圆形
 
           fill(255, 250, 220, 180 + pulse * 75);
-          circle(0, -10 + sin(frameCount * 0.06) * 4, 7);
+          circle(0, sin(frameCount * 0.06) * 4, 7); // 中心小光点也对齐圆心
         }} else {{
           doorGlow = lerp(doorGlow, 1, 0.05);
           noStroke();
           fill(255, 240, 185, (1 - doorGlow) * 140);
-          ellipse(0, 0, 50 + doorGlow * 40, 68 + doorGlow * 40);
+          circle(0, 0, 52 + doorGlow * 40); // 扩散光晕也改为正圆形
         }}
         pop();
       }}
