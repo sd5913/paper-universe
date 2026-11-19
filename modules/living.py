@@ -153,7 +153,7 @@ def render():
           {{ x: 735, y: 478, kind: 'flower',   variant: 1 }},
           {{ x: 765, y: 445, kind: 'flower',   variant: 2 }},
           {{ x: 795, y: 415, kind: 'flower',   variant: 0 }},
-          {{ x: 822, y: 375, kind: 'flower',   variant: 1 }}，
+          {{ x: 822, y: 375, kind: 'flower',   variant: 1 }},
 
           // --- 新增：右下角最下方空白草地 ---
           {{ x: 738, y: 525, kind: 'flower',   variant: 2 }},
@@ -468,7 +468,7 @@ def render():
           this.y = y;
           this.growth = 0.08;
           this.targetGrowth = 0.08;
-          this.maxH = random(22, 36);
+          this.maxH = random(20, 32);
           this.lean = random(-0.22, 0.22);
         }}
         update() {{
@@ -535,10 +535,10 @@ def render():
             }}
           }} else {{
             let curH = this.stemHeight * map(this.bloom, 0.05, 1, 0.22, 1);
-            let sway = sin(frameCount * 0.035 + this.x) * 4 * this.bloom;
+            let sway = sin(frameCount * 0.035 + this.x) * 3.5 * this.bloom;
 
             stroke(this.bloom > 0.22 ? '#588b3e' : '#bfb8a5');
-            strokeWeight(3);
+            strokeWeight(2.8);
             line(0, 0, sway, -curH);
             noStroke();
 
