@@ -492,7 +492,7 @@ def render():
           this.variant = variant;
           this.bloom = 0.05;
           this.targetBloom = 0.05;
-          this.stemHeight = kind === 'flower' ? random(34, 68) : 0;
+          this.stemHeight = kind === 'flower' ? random(14, 38) : 0;
         }}
         update() {{
           this.bloom = lerp(this.bloom, this.targetBloom, 0.065);
