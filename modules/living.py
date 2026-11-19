@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击蘑菇屋的拱形木门唤醒花仙子；出屋后点击草地上的水壶拾起并移动浇水；浇完水后点击花仙子手边的水壶即可将其放回地上。"
+        "点击蘑菇屋的拱形木门唤醒花仙子；出屋后点击草地上的水壶拾起，再点击左下角荷花池舀水，随后在草地上点击/按住左键倾倒浇水；浇完后点击手边的水壶即可放回地上。"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -90,8 +90,9 @@ def render():
       let birds = [];
       let gardenVitality = 0;
       let hasWateredFlowers = false;
+      let hasPickedBucketOnce = false; // 记录是否已经拾起过水桶，放下后不再显示黄色光晕
 
-      // 初始水桶放在屋前左侧草地上（避开石子路），等小精灵出屋后点击拾起
+      // 初始水桶放在屋前左侧草地上（避开石子路）
       let groundBucket = {{
         x: 365,
         y: 445,
@@ -101,6 +102,17 @@ def render():
 
       const DOOR_X = 562;
       const DOOR_Y = 326;
+
+      // 左下角荷花池中心坐标与范围
+      const POND_X = 195;
+      const POND_Y = 382;
+
+      function isPointInPond(px, py) {{
+        // 椭圆检测荷花池区域
+        let dx = (px - POND_X) / 132;
+        let dy = (py - POND_Y) / 68;
+        return (dx * dx + dy * dy) <= 1.05;
+      }}
 
       function preload() {{
         if (BG_IMG_DATA) bgImg = loadImage(BG_IMG_DATA);
@@ -192,6 +204,7 @@ def render():
         }}
 
         drawDoorPortal();
+        drawPondHint();
 
         for (let g of grassBlades) {{
           g.update();
@@ -242,7 +255,6 @@ def render():
           }}
         }}
 
-        // 绘制放在地上的水桶（含轻柔呼吸微光提示可点击拾起）
         drawGroundBucket();
 
         for (let b of butterflies) {{
@@ -254,14 +266,30 @@ def render():
           bird.display();
         }}
 
-        // 只有小精灵手里拿着水桶时，按住左键才会持续倒水
-        if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && mouseIsPressed && frameCount % 7 === 0) {{
-          sprite.pourWater();
+        // 只有拿着水桶且已经舀水后，按住左键才会持续倒水
+        if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % 7 === 0) {{
+          if (!isPointInPond(mouseX, mouseY)) {{
+            sprite.pourWater();
+          }}
         }}
 
         sprite.update();
         sprite.display();
         updateCursorStyle();
+      }}
+
+      function drawPondHint() {{
+        // 当花仙子拿着空水桶准备舀水时，荷花池水面泛起轻柔的水波提示
+        if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && !sprite.bucketHasWater) {{
+          push();
+          translate(POND_X, POND_Y);
+          let pulse = sin(frameCount * 0.08) * 0.5 + 0.5;
+          noFill();
+          stroke(255, 255, 255, 110 + pulse * 100);
+          strokeWeight(2.2);
+          ellipse(0, 0, 120 + pulse * 24, 52 + pulse * 10);
+          pop();
+        }}
       }}
 
       function updateCursorStyle() {{
@@ -270,6 +298,8 @@ def render():
           return;
         }}
         if (sprite.hasBucket && sprite.isPointOnBucket(mouseX, mouseY)) {{
+          cursor(HAND);
+        }} else if (sprite.hasBucket && !sprite.bucketHasWater && isPointInPond(mouseX, mouseY)) {{
           cursor(HAND);
         }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
           cursor(HAND);
@@ -283,14 +313,20 @@ def render():
           sceneState = "SPRITE_EMERGING";
         }} else if (sceneState === "GARDEN_ACTIVE") {{
           if (sprite.hasBucket) {{
-            // 拿着水桶时：点击水桶本身 -> 把水桶放在地上；点击其他地方 -> 倾倒浇水
+            // 1. 点击水桶 -> 把水桶放在地上
             if (sprite.isPointOnBucket(mouseX, mouseY)) {{
               sprite.putBucketOnGround();
-            }} else {{
+            }}
+            // 2. 点击荷花池 -> 舀水装满水桶
+            else if (isPointInPond(mouseX, mouseY)) {{
+              sprite.scoopWater(mouseX, mouseY);
+            }}
+            // 3. 已经舀水后点击草地 -> 倾倒浇水
+            else if (sprite.bucketHasWater) {{
               sprite.pourWater();
             }}
           }} else if (groundBucket) {{
-            // 出屋后空手时：点击地上的水桶 -> 拾起水桶准备浇水
+            // 4. 空手时点击地上的水桶 -> 拾起水桶
             if (dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 36) {{
               sprite.pickUpBucket();
             }}
@@ -313,8 +349,8 @@ def render():
         fill(45, 55, 35, 48);
         ellipse(0, 16, 34, 9);
 
-        // 当小精灵已出屋且空手时，给地上水桶加一圈柔和的暖光呼吸提示
-        if (sceneState === "GARDEN_ACTIVE" && !sprite.hasBucket) {{
+        // 仅在出屋后且从未拾起过水桶时显示黄色呼吸光晕；放回地上后不再出现黄色光标
+        if (sceneState === "GARDEN_ACTIVE" && !sprite.hasBucket && !hasPickedBucketOnce) {{
           let pulse = sin(frameCount * 0.09) * 0.5 + 0.5;
           fill(255, 244, 185, 55 + pulse * 65);
           circle(0, 0, 44 + pulse * 8);
@@ -398,11 +434,12 @@ def render():
           this.trail = [];
           this.vx = 0;
 
-          // 出屋时默认空手，需点击地上的水桶才会拿起
           this.hasBucket = false;
+          this.bucketHasWater = false; // 初始水桶为空，点击水池舀水后变为 true
           this.bucketScale = 0;
           this.bucketTilt = 0;
           this.pourTimer = 0;
+          this.scoopTimer = 0;
         }}
         getBucketWorldPos() {{
           return {{ x: this.x - 24, y: this.y + 20 }};
@@ -412,14 +449,20 @@ def render():
           let pos = this.getBucketWorldPos();
           return dist(px, py, pos.x, pos.y) < 30;
         }}
+        scoopWater(px, py) {{
+          if (!this.hasBucket) return;
+          this.bucketHasWater = true;
+          this.scoopTimer = 18; // 触发舀水俯身动作
+          // 在水池点击处激起两圈清澈的水波纹
+          ripples.push(new PaperRipple(px, py));
+          ripples.push(new PaperRipple(px + random(-14, 14), py + random(-8, 8)));
+        }}
         putBucketOnGround() {{
           let pos = this.getBucketWorldPos();
           let landX = constrain(pos.x, 85, width - 85);
-          // 若当前在池塘正上方，自动挪到池塘右边草地上
           if (landX < 310) {{
             landX = max(landX, 320);
           }}
-          // 若当前在中间石子路正上方（x: 435~595），稍微向左或向右错开一点放到草地上
           if (landX > 435 && landX < 595) {{
             landX = landX < 515 ? 420 : 610;
           }}
@@ -435,10 +478,11 @@ def render():
           this.hasBucket = false;
           this.bucketScale = 0;
           this.pourTimer = 0;
+          this.scoopTimer = 0;
         }}
         pickUpBucket() {{
           if (!groundBucket) return;
-          // 花仙子飞向水桶位置并拾起水桶
+          hasPickedBucketOnce = true; // 标记已拾起过水桶，此后放下不再显示黄色光晕
           this.targetX = groundBucket.x + 22;
           this.targetY = groundBucket.y - 24;
           this.hasBucket = true;
@@ -451,11 +495,10 @@ def render():
           this.targetY = ty;
           if (dist(this.x, this.y, tx, ty) < 20) {{
             sceneState = "GARDEN_ACTIVE";
-            // 出屋到达花园后保持空手，等待用户点击地上的水桶
           }}
         }}
         pourWater() {{
-          if (!this.hasBucket) return;
+          if (!this.hasBucket || !this.bucketHasWater) return;
           this.pourTimer = 14;
           let spoutX = this.x - 36;
           let spoutY = this.y + 20;
@@ -485,7 +528,10 @@ def render():
           if (this.hasBucket) {{
             this.bucketScale = lerp(this.bucketScale, 1, 0.14);
           }}
-          if (this.pourTimer > 0) {{
+          if (this.scoopTimer > 0) {{
+            this.scoopTimer--;
+            this.bucketTilt = lerp(this.bucketTilt, -0.55, 0.25);
+          }} else if (this.pourTimer > 0) {{
             this.pourTimer--;
             this.bucketTilt = lerp(this.bucketTilt, -PI / 4, 0.25);
           }} else {{
@@ -538,6 +584,13 @@ def render():
               stroke('#6b655c');
               strokeWeight(1.2);
               quad(-9, 0, 9, 0, 6, 18, -6, 18);
+            }}
+
+            // 如果水桶已舀满水，在桶口上方显示一颗晶莹的小水滴状态指示
+            if (this.bucketHasWater) {{
+              noStroke();
+              fill('#7ec8e3');
+              circle(-2, -13 + sin(frameCount * 0.14) * 2, 6.5);
             }}
             pop();
           }}
