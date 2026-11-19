@@ -433,7 +433,7 @@ def render():
         drawingContext.shadowOffsetY = 0;
       }}
 
-      // ================== 荷叶上的剪纸小青蛙类 ==================
+      // ================== 荷叶上的剪纸小青蛙类（支持点击连跳两下） ==================
       class OrigamiFrog {{
         constructor() {{
           // 精确对齐背景图中的 5 片绿色荷叶中心（第 1 片为最左边荷叶）
@@ -454,16 +454,16 @@ def render():
 
           this.isJumping = false;
           this.jumpT = 0;
-          this.jumpDuration = 26;
+          this.jumpDuration = 22;     // 单次跳跃稍快一点，连跳更轻快
+          this.remainingJumps = 0;    // 剩余连跳次数
+          this.pauseTimer = 0;        // 第一跳落地后的短暂停顿蓄力帧数
           this.facing = 1;
           this.squash = 1;
         }}
         isPointOnFrog(px, py) {{
-          // 检测鼠标是否直接点在小青蛙身上（中心略上移 10px 对齐身体视觉中心）
           return dist(px, py, this.x, this.y - 10) < 22;
         }}
-        jumpToNextPad() {{
-          if (this.isJumping) return;
+        startSingleHop() {{
           this.startX = this.x;
           this.startY = this.y;
 
@@ -476,6 +476,12 @@ def render():
           this.isJumping = true;
           this.jumpT = 0;
           ripples.push(new PaperRipple(this.startX, this.startY + 4));
+        }}
+        jumpToNextPad() {{
+          // 如果正在连跳中，防连击打断
+          if (this.isJumping || this.remainingJumps > 0) return;
+          this.remainingJumps = 1; // 除当前第一跳外，落地后再自动连跳 1 下（共两下）
+          this.startSingleHop();
         }}
         update() {{
           if (this.isJumping) {{
@@ -497,11 +503,23 @@ def render():
               this.isJumping = false;
               this.x = this.targetX;
               this.y = this.targetY;
-              this.squash = 1;
+              this.squash = 0.85;
               ripples.push(new PaperRipple(this.x, this.y + 4));
+
+              // 如果还有剩余连跳次数，设置 8 帧的落地微蹲蓄力后起跳第二下
+              if (this.remainingJumps > 0) {{
+                this.pauseTimer = 8;
+              }}
+            }}
+          }} else if (this.pauseTimer > 0) {{
+            this.pauseTimer--;
+            this.squash = lerp(this.squash, 0.8, 0.3); // 蓄力微蹲形变
+            if (this.pauseTimer === 0 && this.remainingJumps > 0) {{
+              this.remainingJumps--;
+              this.startSingleHop();
             }}
           }} else {{
-            this.squash = 1 + sin(frameCount * 0.08) * 0.03;
+            this.squash = lerp(this.squash, 1 + sin(frameCount * 0.08) * 0.03, 0.2);
           }}
         }}
         display() {{
