@@ -164,6 +164,11 @@ def render():
         for (let cfg of plantConfigs) {{
           plants.push(new CustomPlant(cfg.x, cfg.y, cfg.kind, cfg.variant));
         }}
+
+        // 初始就有 3 只蝴蝶在花园草地和花丛附近悠闲飞舞，随着花朵绽放最多增加到 8 只
+        for (let i = 0; i < 3; i++) {{
+          butterflies.push(new OrigamiButterfly(random(120, 760), random(360, 490)));
+        }}
       }}
 
       function draw() {{
@@ -191,12 +196,12 @@ def render():
         }}
         gardenVitality = totalBloom / plants.length;
 
-        if (bloomedCount >= 3 && butterflies.length < 6 && frameCount % 45 === 0) {{
+        // 每多绽放几朵花，就会吸引新的蝴蝶飞到花丛旁边（最多 8 只）
+        let targetButterflyCount = min(8, 3 + floor(bloomedCount / 3));
+        if (butterflies.length < targetButterflyCount && frameCount % 40 === 0) {{
           let flowerPlants = plants.filter(p => p.kind === 'flower' && p.bloom > 0.72);
-          let source = flowerPlants.length > 0 ? random(flowerPlants) : random(plants.filter(p => p.bloom > 0.72));
-          if (source) {{
-            butterflies.push(new OrigamiButterfly(source.x, source.y - source.stemHeight));
-          }}
+          let source = flowerPlants.length > 0 ? random(flowerPlants) : random(plants);
+          butterflies.push(new OrigamiButterfly(source.x + random(-20, 20), source.y - source.stemHeight - 15));
         }}
 
         if (gardenVitality > 0.45 && birds.length < 2 && frameCount % 90 === 0) {{
@@ -590,23 +595,54 @@ def render():
         }}
       }}
 
+      // ================== 折纸蝴蝶：会在花丛旁低空盘旋、换花飞舞 ==================
       class OrigamiButterfly {{
         constructor(x, y) {{
           this.x = x;
           this.y = y;
           this.seed = random(1000);
-          const cols = ['#ff9f1c', '#ffbf69', '#a0c4ff', '#ffadad', '#bdb2ff'];
+          const cols = ['#ff9f1c', '#ffbf69', '#a0c4ff', '#ffadad', '#bdb2ff', '#ffd166'];
           this.color = random(cols);
+          this.targetPlant = null;
+          this.switchTimer = int(random(60, 180));
+          this.orbitAngle = random(TWO_PI);
+          this.orbitDir = random([-1, 1]);
+        }}
+        pickNewFlower() {{
+          // 优先挑选已经开放的花朵，其次从所有花朵中随机选一朵飞过去
+          let bloomedFlowers = plants.filter(p => p.kind === 'flower' && p.bloom > 0.55);
+          let allFlowers = plants.filter(p => p.kind === 'flower');
+          let pool = bloomedFlowers.length > 0 ? bloomedFlowers : allFlowers;
+          if (pool.length > 0) {{
+            this.targetPlant = random(pool);
+            this.orbitDir = random([-1, 1]);
+          }}
         }}
         update() {{
-          this.seed += 0.025;
-          this.x += map(noise(this.seed), 0, 1, -2.2, 2.4);
-          this.y += map(noise(this.seed + 50), 0, 1, -2.0, 1.6);
-          this.x = constrain(this.x, 80, width - 60);
-          this.y = constrain(this.y, 80, 440);
+          this.seed += 0.03;
+          this.switchTimer--;
+          if (!this.targetPlant || this.switchTimer <= 0) {{
+            this.pickNewFlower();
+            this.switchTimer = int(random(140, 280)); // 每隔几秒换一朵花飞过去
+          }}
+
+          if (this.targetPlant) {{
+            // 在目标花朵旁边画小圆圈盘旋 + 轻盈上下起伏
+            this.orbitAngle += 0.035 * this.orbitDir;
+            let destX = this.targetPlant.x + cos(this.orbitAngle) * 26;
+            let destY = (this.targetPlant.y - this.targetPlant.stemHeight - 16) + sin(this.orbitAngle * 1.5) * 12;
+            this.x = lerp(this.x, destX, 0.035);
+            this.y = lerp(this.y, destY, 0.035);
+          }} else {{
+            this.x += map(noise(this.seed), 0, 1, -2.0, 2.0);
+            this.y += map(noise(this.seed + 50), 0, 1, -1.8, 1.8);
+          }}
+
+          this.x = constrain(this.x, 45, width - 45);
+          this.y = constrain(this.y, 260, 525); // 活动高度贴近草地与花丛
         }}
         display() {{
-          let flap = cos(frameCount * 0.28 + this.seed * 10);
+          let flap = cos(frameCount * 0.32 + this.seed * 10);
           push();
           translate(this.x, this.y);
           rotate(sin(this.seed * 3) * 0.25);
@@ -616,15 +652,15 @@ def render():
           push();
           scale(flap, 1);
           fill(this.color);
-          triangle(0, 0, -16, -12, -12, 4);
-          triangle(0, 2, -12, 4, -8, 12);
+          triangle(0, 0, -14, -10, -10, 4);
+          triangle(0, 2, -10, 4, -7, 10);
           pop();
 
           push();
           scale(-flap, 1);
           fill(this.color);
-          triangle(0, 0, -16, -12, -12, 4);
-          triangle(0, 2, -12, 4, -8, 12);
+          triangle(0, 0, -14, -10, -10, 4);
+          triangle(0, 2, -10, 4, -7, 10);
           pop();
 
           clearShadow();
