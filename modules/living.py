@@ -84,6 +84,7 @@ def render():
       let butterflies = [];
       let birds = [];
       let gardenVitality = 0;
+      let hasWateredFlowers = false; // 记录是否已经开始给花朵浇水
 
       const DOOR_X = 576;
       const DOOR_Y = 328;
@@ -164,11 +165,6 @@ def render():
         for (let cfg of plantConfigs) {{
           plants.push(new CustomPlant(cfg.x, cfg.y, cfg.kind, cfg.variant));
         }}
-
-        // 初始就有 3 只蝴蝶在花园草地和花丛附近悠闲飞舞，随着花朵绽放最多增加到 8 只
-        for (let i = 0; i < 3; i++) {{
-          butterflies.push(new OrigamiButterfly(random(120, 760), random(360, 490)));
-        }}
       }}
 
       function draw() {{
@@ -192,16 +188,18 @@ def render():
           p.update();
           p.display();
           totalBloom += p.bloom;
-          if (p.bloom > 0.72) bloomedCount++;
+          if (p.bloom > 0.55) bloomedCount++;
         }}
         gardenVitality = totalBloom / plants.length;
 
-        // 每多绽放几朵花，就会吸引新的蝴蝶飞到花丛旁边（最多 8 只）
-        let targetButterflyCount = min(8, 3 + floor(bloomedCount / 3));
-        if (butterflies.length < targetButterflyCount && frameCount % 40 === 0) {{
-          let flowerPlants = plants.filter(p => p.kind === 'flower' && p.bloom > 0.72);
-          let source = flowerPlants.length > 0 ? random(flowerPlants) : random(plants);
-          butterflies.push(new OrigamiButterfly(source.x + random(-20, 20), source.y - source.stemHeight - 15));
+        // 只有在给花朵浇水后（hasWateredFlowers 为 true）且有花朵开始绽放时，才召唤蝴蝶
+        if (hasWateredFlowers && bloomedCount >= 1) {{
+          let targetButterflyCount = min(7, 2 + floor(bloomedCount / 3));
+          if (butterflies.length < targetButterflyCount && frameCount % 55 === 0) {{
+            let wateredFlowers = plants.filter(p => p.kind === 'flower' && p.bloom > 0.45);
+            let source = wateredFlowers.length > 0 ? random(wateredFlowers) : random(plants);
+            butterflies.push(new OrigamiButterfly(source.x + random(-24, 24), source.y - source.stemHeight - 16));
+          }}
         }}
 
         if (gardenVitality > 0.45 && birds.length < 2 && frameCount % 90 === 0) {{
@@ -264,6 +262,9 @@ def render():
         for (let p of plants) {{
           if (dist(p.x, p.y, wx, wy) < 115) {{
             p.targetBloom = min(1, p.targetBloom + 0.48);
+            if (p.kind === 'flower') {{
+              hasWateredFlowers = true; // 浇灌到花朵，正式激活蝴蝶出现条件
+            }}
           }}
         }}
       }}
@@ -595,7 +596,7 @@ def render():
         }}
       }}
 
-      // ================== 折纸蝴蝶：会在花丛旁低空盘旋、换花飞舞 ==================
+      // ================== 折纸蝴蝶：浇水后出现，慢速轻盈地围绕花朵飞舞 ==================
       class OrigamiButterfly {{
         constructor(x, y) {{
           this.x = x;
@@ -604,13 +605,13 @@ def render():
           const cols = ['#ff9f1c', '#ffbf69', '#a0c4ff', '#ffadad', '#bdb2ff', '#ffd166'];
           this.color = random(cols);
           this.targetPlant = null;
-          this.switchTimer = int(random(60, 180));
+          this.switchTimer = int(random(180, 340));
           this.orbitAngle = random(TWO_PI);
           this.orbitDir = random([-1, 1]);
+          this.appearScale = 0.05; // 出现时由小变大平滑浮现
         }}
         pickNewFlower() {{
-          // 优先挑选已经开放的花朵，其次从所有花朵中随机选一朵飞过去
-          let bloomedFlowers = plants.filter(p => p.kind === 'flower' && p.bloom > 0.55);
+          let bloomedFlowers = plants.filter(p => p.kind === 'flower' && p.bloom > 0.45);
           let allFlowers = plants.filter(p => p.kind === 'flower');
           let pool = bloomedFlowers.length > 0 ? bloomedFlowers : allFlowers;
           if (pool.length > 0) {{
@@ -619,33 +620,35 @@ def render():
           }}
         }}
         update() {{
-          this.seed += 0.03;
+          this.appearScale = lerp(this.appearScale, 1, 0.04);
+          this.seed += 0.012; // 慢速柔和的摆动节拍
           this.switchTimer--;
           if (!this.targetPlant || this.switchTimer <= 0) {{
             this.pickNewFlower();
-            this.switchTimer = int(random(140, 280)); // 每隔几秒换一朵花飞过去
+            this.switchTimer = int(random(240, 420)); // 在每朵花旁悠闲多停留一会儿
           }}
 
           if (this.targetPlant) {{
-            // 在目标花朵旁边画小圆圈盘旋 + 轻盈上下起伏
-            this.orbitAngle += 0.035 * this.orbitDir;
-            let destX = this.targetPlant.x + cos(this.orbitAngle) * 26;
-            let destY = (this.targetPlant.y - this.targetPlant.stemHeight - 16) + sin(this.orbitAngle * 1.5) * 12;
-            this.x = lerp(this.x, destX, 0.035);
-            this.y = lerp(this.y, destY, 0.035);
+            // 减慢盘旋角速度与飞行跟随速度（从 0.035 降至 0.012）
+            this.orbitAngle += 0.012 * this.orbitDir;
+            let destX = this.targetPlant.x + cos(this.orbitAngle) * 28;
+            let destY = (this.targetPlant.y - this.targetPlant.stemHeight - 16) + sin(this.orbitAngle * 1.4) * 10;
+            this.x = lerp(this.x, destX, 0.012);
+            this.y = lerp(this.y, destY, 0.012);
           }} else {{
-            this.x += map(noise(this.seed), 0, 1, -2.0, 2.0);
-            this.y += map(noise(this.seed + 50), 0, 1, -1.8, 1.8);
+            this.x += map(noise(this.seed), 0, 1, -0.8, 0.8);
+            this.y += map(noise(this.seed + 50), 0, 1, -0.7, 0.7);
           }}
 
           this.x = constrain(this.x, 45, width - 45);
-          this.y = constrain(this.y, 260, 525); // 活动高度贴近草地与花丛
+          this.y = constrain(this.y, 260, 525);
         }}
         display() {{
-          let flap = cos(frameCount * 0.32 + this.seed * 10);
+          let flap = cos(frameCount * 0.16 + this.seed * 10); // 慢速优雅扇翅
           push();
           translate(this.x, this.y);
-          rotate(sin(this.seed * 3) * 0.25);
+          rotate(sin(this.seed * 2) * 0.22);
+          scale(this.appearScale);
           setPaperShadow(6, 2, 3);
           noStroke();
 
