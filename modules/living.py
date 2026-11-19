@@ -26,12 +26,19 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击蘑菇屋的拱形木门唤醒花仙子，出屋后她会提起水壶；移动鼠标并点击/按住左键向左倾倒浇水，唤醒草地上的立体折纸花草与蝶鸟。"
+        "点击蘑菇屋的拱形木门唤醒花仙子，出屋后她会提起水壶；移动鼠标并点击/按住左键向左倾倒浇水，唤醒草地上的花朵、蘑菇与蝶鸟。"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
     fairy_data_uri = load_asset_data_uri(["fairy.PNG", "fairy.png"])
     bucket_data_uri = load_asset_data_uri(["bucket.PNG", "bucket.png"])
+
+    # 加载自定义花朵与蘑菇图片
+    f1_uri = load_asset_data_uri(["flower1.png", "flower1.PNG"])
+    f2_uri = load_asset_data_uri(["flower2.png", "flower2.PNG"])
+    f3_uri = load_asset_data_uri(["flower3.png", "flower3.PNG"])
+    m1_uri = load_asset_data_uri(["mushroom1.png", "mushroom1.PNG"])
+    m2_uri = load_asset_data_uri(["mushroom2.png", "mushroom2.PNG"])
 
     p5_html = f"""
     <!DOCTYPE html>
@@ -59,35 +66,39 @@ def render():
       const BG_IMG_DATA = "{bg_data_uri}";
       const FAIRY_IMG_DATA = "{fairy_data_uri}";
       const BUCKET_IMG_DATA = "{bucket_data_uri}";
+      const FLOWER_URIS = ["{f1_uri}", "{f2_uri}", "{f3_uri}"];
+      const MUSHROOM_URIS = ["{m1_uri}", "{m2_uri}"];
 
       let bgImg = null;
       let fairyImg = null;
       let bucketImg = null;
+      let flowerImgs = [];
+      let mushroomImgs = [];
 
-      let sceneState = "HOUSE_CLOSED"; // HOUSE_CLOSED -> SPRITE_EMERGING -> GARDEN_ACTIVE
+      let sceneState = "HOUSE_CLOSED";
       let doorGlow = 0;
       let sprite;
       let grassBlades = [];
-      let flowers = [];
+      let plants = []; // 统一管理所有花朵与蘑菇
       let waterDrops = [];
       let ripples = [];
       let butterflies = [];
       let birds = [];
       let gardenVitality = 0;
 
-      // 对齐背景图中蘑菇小屋拱形门洞中心坐标（860x560画布下）
       const DOOR_X = 576;
       const DOOR_Y = 328;
 
       function preload() {{
-        if (BG_IMG_DATA && BG_IMG_DATA.length > 0) {{
-          bgImg = loadImage(BG_IMG_DATA);
+        if (BG_IMG_DATA) bgImg = loadImage(BG_IMG_DATA);
+        if (FAIRY_IMG_DATA) fairyImg = loadImage(FAIRY_IMG_DATA);
+        if (BUCKET_IMG_DATA) bucketImg = loadImage(BUCKET_IMG_DATA);
+
+        for (let uri of FLOWER_URIS) {{
+          if (uri && uri.length > 0) flowerImgs.push(loadImage(uri));
         }}
-        if (FAIRY_IMG_DATA && FAIRY_IMG_DATA.length > 0) {{
-          fairyImg = loadImage(FAIRY_IMG_DATA);
-        }}
-        if (BUCKET_IMG_DATA && BUCKET_IMG_DATA.length > 0) {{
-          bucketImg = loadImage(BUCKET_IMG_DATA);
+        for (let uri of MUSHROOM_URIS) {{
+          if (uri && uri.length > 0) mushroomImgs.push(loadImage(uri));
         }}
       }}
 
@@ -95,10 +106,9 @@ def render():
         createCanvas(860, 560);
         angleMode(RADIANS);
 
-        // 花仙子初始从拱形门洞内部飞出
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
 
-        // 在背景图草地空白区域布置可生长的立体折纸小草（避开荷花池与石子路）
+        // 草地区域（避开荷花池与石子路）
         const grassZones = [
           {{ x1: 255, x2: 395, y1: 475, y2: 535 }},
           {{ x1: 405, x2: 560, y1: 480, y2: 535 }},
@@ -111,24 +121,25 @@ def render():
           }}
         }}
 
-        // 在草地前景与右侧花园布置 3 种不同造型的立体折纸花朵
-        const flowerConfigs = [
-          {{ x: 295, y: 515, type: 'pinwheel' }},
-          {{ x: 355, y: 502, type: 'lotus' }},
-          {{ x: 425, y: 522, type: 'tulip' }},
-          {{ x: 545, y: 505, type: 'pinwheel' }},
-          {{ x: 615, y: 492, type: 'lotus' }},
-          {{ x: 675, y: 512, type: 'tulip' }},
-          {{ x: 745, y: 445, type: 'pinwheel' }},
-          {{ x: 795, y: 425, type: 'lotus' }}
+        // 布置花朵与蘑菇点位（kind: 'flower' 或 'mushroom'）
+        const plantConfigs = [
+          {{ x: 285, y: 515, kind: 'flower', variant: 0 }},
+          {{ x: 332, y: 532, kind: 'mushroom', variant: 0 }},
+          {{ x: 375, y: 500, kind: 'flower', variant: 1 }},
+          {{ x: 430, y: 525, kind: 'flower', variant: 2 }},
+          {{ x: 535, y: 512, kind: 'mushroom', variant: 1 }},
+          {{ x: 585, y: 495, kind: 'flower', variant: 0 }},
+          {{ x: 645, y: 518, kind: 'flower', variant: 1 }},
+          {{ x: 695, y: 492, kind: 'mushroom', variant: 0 }},
+          {{ x: 745, y: 450, kind: 'flower', variant: 2 }},
+          {{ x: 795, y: 425, kind: 'flower', variant: 0 }}
         ];
-        for (let cfg of flowerConfigs) {{
-          flowers.push(new OrigamiFlower(cfg.x, cfg.y, cfg.type));
+        for (let cfg of plantConfigs) {{
+          plants.push(new CustomPlant(cfg.x, cfg.y, cfg.kind, cfg.variant));
         }}
       }}
 
       function draw() {{
-        // 1. 绘制你的纸片拼贴背景图
         if (bgImg) {{
           imageMode(CORNER);
           image(bgImg, 0, 0, width, height);
@@ -136,52 +147,46 @@ def render():
           background('#f7f2e7');
         }}
 
-        // 2. 小屋拱形门洞唤醒微光提示（未开门前呼吸闪烁）
         drawDoorPortal();
 
-        // 3. 更新并绘制可生长的立体折纸小草
         for (let g of grassBlades) {{
           g.update();
           g.display();
         }}
 
-        // 4. 更新并绘制多种立体折纸花朵
         let bloomedCount = 0;
         let totalBloom = 0;
-        for (let f of flowers) {{
-          f.update();
-          f.display();
-          totalBloom += f.bloom;
-          if (f.bloom > 0.72) bloomedCount++;
+        for (let p of plants) {{
+          p.update();
+          p.display();
+          totalBloom += p.bloom;
+          if (p.bloom > 0.72) bloomedCount++;
         }}
-        gardenVitality = totalBloom / flowers.length;
+        gardenVitality = totalBloom / plants.length;
 
-        // 5. 花朵陆续开放后，召唤折纸蝴蝶在花丛与池塘上方飞舞
         if (bloomedCount >= 3 && butterflies.length < 6 && frameCount % 45 === 0) {{
-          let sourceFlower = random(flowers.filter(f => f.bloom > 0.72));
-          if (sourceFlower) {{
-            butterflies.push(new OrigamiButterfly(sourceFlower.x, sourceFlower.y - sourceFlower.stemHeight));
+          let flowerPlants = plants.filter(p => p.kind === 'flower' && p.bloom > 0.72);
+          let source = flowerPlants.length > 0 ? random(flowerPlants) : random(plants.filter(p => p.bloom > 0.72));
+          if (source) {{
+            butterflies.push(new OrigamiButterfly(source.x, source.y - source.stemHeight));
           }}
         }}
 
-        // 6. 花园活力达到一定程度后，折纸小鸟飞入并停落在左右两棵剪纸大树枝头
         if (gardenVitality > 0.55 && birds.length < 2 && frameCount % 90 === 0) {{
           const treePerches = [
-            {{ x: 112, y: 205 }}, // 左侧绿色剪纸大树枝头
-            {{ x: 748, y: 195 }}  // 右侧黄绿色剪纸大树枝头
+            {{ x: 112, y: 205 }},
+            {{ x: 748, y: 195 }}
           ];
           let perch = treePerches[birds.length];
           birds.push(new OrigamiBird(birds.length === 0 ? -30 : width + 30, random(90, 160), perch.x, perch.y));
         }}
 
-        // 7. 绘制水波纹（落在草地或荷花池水面都会激起涟漪）
         for (let i = ripples.length - 1; i >= 0; i--) {{
           ripples[i].update();
           ripples[i].display();
           if (ripples[i].alpha <= 0) ripples.splice(i, 1);
         }}
 
-        // 8. 绘制折纸水滴下落与碰撞
         for (let i = waterDrops.length - 1; i >= 0; i--) {{
           waterDrops[i].update();
           waterDrops[i].display();
@@ -191,7 +196,6 @@ def render():
           }}
         }}
 
-        // 9. 绘制折纸蝴蝶与小鸟
         for (let b of butterflies) {{
           b.update();
           b.display();
@@ -201,17 +205,12 @@ def render():
           bird.display();
         }}
 
-        // 10. 按住鼠标持续浇水
         if (sceneState === "GARDEN_ACTIVE" && mouseIsPressed && frameCount % 7 === 0) {{
           sprite.pourWater();
         }}
 
-        // 11. 更新并绘制花仙子与左侧水壶
         sprite.update();
         sprite.display();
-
-        // 12. 顶部半透明纸条提示栏
-        drawHUD(bloomedCount);
       }}
 
       function mousePressed() {{
@@ -225,16 +224,14 @@ def render():
       function triggerWaterImpact(wx, wy) {{
         ripples.push(new PaperRipple(wx, wy));
 
-        // 唤醒附近小草
         for (let g of grassBlades) {{
           if (dist(g.x, g.y, wx, wy) < 105) {{
             g.targetGrowth = min(1, g.targetGrowth + 0.55);
           }}
         }}
-        // 唤醒附近花朵
-        for (let f of flowers) {{
-          if (dist(f.x, f.y, wx, wy) < 115) {{
-            f.targetBloom = min(1, f.targetBloom + 0.45);
+        for (let p of plants) {{
+          if (dist(p.x, p.y, wx, wy) < 115) {{
+            p.targetBloom = min(1, p.targetBloom + 0.48);
           }}
         }}
       }}
@@ -248,7 +245,6 @@ def render():
           fill(255, 238, 170, 70 + pulse * 85);
           ellipse(0, 0, 44 + pulse * 10, 62 + pulse * 10);
 
-          // 门前浮动小光点提示
           fill(255, 250, 220, 180 + pulse * 75);
           circle(0, -10 + sin(frameCount * 0.06) * 4, 7);
         }} else {{
@@ -273,31 +269,6 @@ def render():
         drawingContext.shadowOffsetY = 0;
       }}
 
-      function drawHUD(bloomedCount) {{
-        push();
-        // 柔和的米白半透明剪纸标签底框，确保在蓝色天空背景上文字清晰
-        setPaperShadow(8, 0, 3, 'rgba(50, 60, 70, 0.14)');
-        fill(252, 249, 242, 225);
-        noStroke();
-        rect(18, 14, 595, 34, 17);
-        clearShadow();
-
-        fill(65, 58, 50, 235);
-        textSize(13.5);
-        textAlign(LEFT, CENTER);
-        let msg = "";
-        if (sceneState === "HOUSE_CLOSED") {{
-          msg = "✨ 点击画面（或蘑菇屋的拱形木门），唤醒花仙子飞出花园";
-        }} else if (sceneState === "SPRITE_EMERGING") {{
-          msg = "🧚 花仙子正在飞出蘑菇屋并提起水壶...";
-        }} else {{
-          msg = `🪣 移动鼠标引导花仙子，点击/按住左键向左倾倒浇水（已唤醒折纸花: ${{bloomedCount}}/${{flowers.length}}）`;
-        }}
-        text(msg, 34, 31);
-        pop();
-      }}
-
-      // ================== 铃兰花仙子小精灵 + 左侧手持水壶（向左倾斜45度浇水） ==================
       class OrigamiSprite {{
         constructor(x, y) {{
           this.x = x;
@@ -326,7 +297,6 @@ def render():
         pourWater() {{
           if (!this.hasBucket) return;
           this.pourTimer = 14;
-          // 从左侧水壶倾倒后的壶嘴位置洒出水滴，落点在花仙子下方草地/池塘高度
           let spoutX = this.x - 36;
           let spoutY = this.y + 20;
           let dropLandY = constrain(this.y + random(135, 195), 375, 540);
@@ -357,7 +327,7 @@ def render():
           }}
           if (this.pourTimer > 0) {{
             this.pourTimer--;
-            this.bucketTilt = lerp(this.bucketTilt, -PI / 4, 0.25); // 向左倾斜45度
+            this.bucketTilt = lerp(this.bucketTilt, -PI / 4, 0.25);
           }} else {{
             this.bucketTilt = lerp(this.bucketTilt, sin(frameCount * 0.1) * 0.07, 0.15);
           }}
@@ -382,7 +352,6 @@ def render():
           scale(this.scaleVal * breathX, this.scaleVal);
           setPaperShadow(12, 3, 6, 'rgba(55, 65, 50, 0.26)');
 
-          // 1. 绘制花仙子主体
           if (fairyImg) {{
             imageMode(CENTER);
             let drawH = 106;
@@ -393,7 +362,6 @@ def render():
             circle(0, 0, 40);
           }}
 
-          // 2. 出屋后在花仙子左边绘制水壶，浇水时向左倾斜 45 度
           if (this.hasBucket && this.bucketScale > 0.05) {{
             push();
             translate(-22, 16);
@@ -425,7 +393,7 @@ def render():
           this.y = y;
           this.targetGroundY = targetGroundY;
           this.vy = random(3.5, 5.5);
-          this.vx = random(-1.8, -0.6); // 随向左倾倒的水壶向左下方抛洒
+          this.vx = random(-1.8, -0.6);
           this.rot = random(-0.2, 0.2);
         }}
         update() {{
@@ -495,121 +463,109 @@ def render():
         }}
       }}
 
-      class OrigamiFlower {{
-        constructor(x, y, type) {{
+      // ================== 自定义花朵与蘑菇生长类 ==================
+      class CustomPlant {{
+        constructor(x, y, kind, variant) {{
           this.x = x;
           this.y = y;
-          this.type = type;
+          this.kind = kind; // 'flower' | 'mushroom'
+          this.variant = variant;
           this.bloom = 0.05;
           this.targetBloom = 0.05;
-          this.stemHeight = random(48, 72);
-
-          const palettes = {{
-            pinwheel: ['#f28482', '#e06361', '#ffe5d9'],
-            lotus:    ['#f6bd60', '#e59f3c', '#fff3b0'],
-            tulip:    ['#b5838d', '#96616b', '#ffcdb2']
-          }};
-          this.colors = palettes[type];
+          this.stemHeight = kind === 'flower' ? random(44, 65) : 0;
         }}
         update() {{
-          this.bloom = lerp(this.bloom, this.targetBloom, 0.06);
+          this.bloom = lerp(this.bloom, this.targetBloom, 0.065);
         }}
         display() {{
-          let curH = this.stemHeight * map(this.bloom, 0.05, 1, 0.25, 1);
-          let sway = sin(frameCount * 0.035 + this.x) * 4 * this.bloom;
-
           push();
           translate(this.x, this.y);
-          setPaperShadow(6, 2, 3, 'rgba(40, 50, 30, 0.18)');
+          setPaperShadow(8, 2, 4, 'rgba(40, 50, 30, 0.22)');
 
-          stroke(this.bloom > 0.25 ? '#588b3e' : '#bfb8a5');
-          strokeWeight(3);
-          line(0, 0, sway, -curH);
-          noStroke();
-
-          if (this.bloom > 0.3) {{
-            let leafScale = map(this.bloom, 0.3, 1, 0, 1);
-            fill('#72ac53');
-            push();
-            translate(sway * 0.5, -curH * 0.45);
-            scale(leafScale);
-            triangle(0, 0, -16, -7, -9, 4);
-            triangle(0, 0, 16, -9, 9, 2);
-            pop();
-          }}
-
-          translate(sway, -curH);
-
-          if (this.bloom <= 0.22) {{
-            fill('#f3ede0');
-            triangle(-6, 0, 0, -13, 0, 0);
-            fill('#e2dac9');
-            triangle(6, 0, 0, -13, 0, 0);
-          }} else {{
-            let s = map(this.bloom, 0.22, 1, 0.2, 1.0);
-            scale(s);
-            if (this.type === 'pinwheel') {{
-              this.drawPinwheel();
-            }} else if (this.type === 'lotus') {{
-              this.drawLotus();
+          if (this.kind === 'mushroom') {{
+            // 蘑菇：未浇水时是地面小菌丝点，浇水后从根部向上弹出
+            if (this.bloom <= 0.2) {{
+              noStroke();
+              fill('#efe8d8');
+              ellipse(0, 0, 12, 6);
             }} else {{
-              this.drawTulip();
+              let s = map(this.bloom, 0.2, 1, 0.15, 1.0);
+              let sway = sin(frameCount * 0.03 + this.x) * 0.04 * this.bloom;
+              rotate(sway);
+              scale(s);
+
+              let img = mushroomImgs.length > 0 ? mushroomImgs[this.variant % mushroomImgs.length] : null;
+              if (img) {{
+                imageMode(CENTER);
+                let targetH = 44; // 蘑菇显示高度（可根据实际大小微调）
+                let targetW = targetH * (img.width / img.height);
+                // 底部对齐地面 (0, 0)
+                image(img, 0, -targetH * 0.45, targetW, targetH);
+              }} else {{
+                // 保底矢量小蘑菇
+                noStroke();
+                fill('#f7f1e3');
+                rect(-6, -20, 12, 20, 4);
+                fill('#e06d53');
+                arc(0, -18, 32, 26, PI, TWO_PI);
+              }}
+            }}
+          }} else {{
+            // 花朵：先长出绿色折纸花茎与叶子，顶端绽放你设计的花朵图片
+            let curH = this.stemHeight * map(this.bloom, 0.05, 1, 0.22, 1);
+            let sway = sin(frameCount * 0.035 + this.x) * 4 * this.bloom;
+
+            stroke(this.bloom > 0.22 ? '#588b3e' : '#bfb8a5');
+            strokeWeight(3);
+            line(0, 0, sway, -curH);
+            noStroke();
+
+            if (this.bloom > 0.3) {{
+              let leafScale = map(this.bloom, 0.3, 1, 0, 1);
+              fill('#72ac53');
+              push();
+              translate(sway * 0.5, -curH * 0.45);
+              scale(leafScale);
+              triangle(0, 0, -16, -7, -9, 4);
+              triangle(0, 0, 16, -9, 9, 2);
+              pop();
+            }}
+
+            translate(sway, -curH);
+
+            if (this.bloom <= 0.2) {{
+              fill('#f3ede0');
+              triangle(-6, 0, 0, -13, 0, 0);
+              fill('#e2dac9');
+              triangle(6, 0, 0, -13, 0, 0);
+            }} else {{
+              let s = map(this.bloom, 0.2, 1, 0.15, 1.0);
+              rotate(sin(frameCount * 0.025 + this.x) * 0.08);
+              scale(s);
+
+              let img = flowerImgs.length > 0 ? flowerImgs[this.variant % flowerImgs.length] : null;
+              if (img) {{
+                imageMode(CENTER);
+                let targetH = 52; // 花朵显示高度（可根据实际大小微调）
+                let targetW = targetH * (img.width / img.height);
+                image(img, 0, -targetH * 0.15, targetW, targetH);
+              }} else {{
+                // 保底折纸花
+                for (let i = 0; i < 4; i++) {{
+                  push();
+                  rotate(HALF_PI * i);
+                  fill('#f28482');
+                  triangle(0, 0, 0, -22, 15, -13);
+                  fill('#e06361');
+                  triangle(0, 0, 15, -13, 11, 0);
+                  pop();
+                }}
+              }}
             }}
           }}
 
           clearShadow();
           pop();
-        }}
-
-        drawPinwheel() {{
-          rotate(sin(frameCount * 0.02 + this.x) * 0.12);
-          for (let i = 0; i < 4; i++) {{
-            push();
-            rotate(HALF_PI * i);
-            fill(this.colors[0]);
-            triangle(0, 0, 0, -22, 15, -13);
-            fill(this.colors[1]);
-            triangle(0, 0, 15, -13, 11, 0);
-            pop();
-          }}
-          fill(this.colors[2]);
-          quad(-5, 0, 0, -5, 5, 0, 0, 5);
-        }}
-
-        drawLotus() {{
-          for (let i = 0; i < 6; i++) {{
-            push();
-            rotate((TWO_PI / 6) * i);
-            fill(this.colors[0]);
-            triangle(0, 0, -7, -15, 0, -24);
-            fill(this.colors[1]);
-            triangle(0, 0, 7, -15, 0, -24);
-            pop();
-          }}
-          for (let i = 0; i < 6; i++) {{
-            push();
-            rotate((TWO_PI / 6) * i + PI / 6);
-            fill(this.colors[2]);
-            triangle(0, 0, -5, -9, 0, -15);
-            pop();
-          }}
-        }}
-
-        drawTulip() {{
-          fill(this.colors[1]);
-          triangle(-13, -7, 0, -24, 0, 4);
-          triangle(13, -7, 0, -24, 0, 4);
-          fill(this.colors[0]);
-          beginShape();
-          vertex(0, 5);
-          vertex(-14, -5);
-          vertex(-12, -22);
-          vertex(-4, -14);
-          vertex(0, -24);
-          vertex(4, -14);
-          vertex(12, -22);
-          vertex(14, -5);
-          endShape(CLOSE);
         }}
       }}
 
