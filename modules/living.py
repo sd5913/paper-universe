@@ -153,7 +153,13 @@ def render():
           {{ x: 735, y: 478, kind: 'flower',   variant: 1 }},
           {{ x: 765, y: 445, kind: 'flower',   variant: 2 }},
           {{ x: 795, y: 415, kind: 'flower',   variant: 0 }},
-          {{ x: 822, y: 375, kind: 'flower',   variant: 1 }}
+          {{ x: 822, y: 375, kind: 'flower',   variant: 1 }}，
+
+          // --- 新增：右下角最下方空白草地 ---
+          {{ x: 738, y: 525, kind: 'flower',   variant: 2 }},
+          {{ x: 772, y: 505, kind: 'flower',   variant: 0 }},
+          {{ x: 798, y: 536, kind: 'flower',   variant: 1 }},
+          {{ x: 824, y: 488, kind: 'flower',   variant: 2 }}
         ];
         for (let cfg of plantConfigs) {{
           plants.push(new CustomPlant(cfg.x, cfg.y, cfg.kind, cfg.variant));
