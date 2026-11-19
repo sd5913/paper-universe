@@ -107,12 +107,11 @@ def render():
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
 
-        // 1. 避开石头小路的 4 片草地区域（含左下水池旁与左右大树旁）
         const grassZones = [
-          {{ x1: 55,  x2: 225, y1: 470, y2: 538 }}, // 左下角水池旁 & 左树下
-          {{ x1: 340, x2: 412, y1: 465, y2: 538 }}, // 水池与石头小路之间的左侧草地
-          {{ x1: 340, x2: 400, y1: 338, y2: 362 }}, // 中间大树树干旁
-          {{ x1: 615, x2: 825, y1: 385, y2: 535 }}  // 石头小路右侧 & 右边大树下
+          {{ x1: 55,  x2: 225, y1: 470, y2: 538 }},
+          {{ x1: 340, x2: 412, y1: 465, y2: 538 }},
+          {{ x1: 340, x2: 400, y1: 338, y2: 362 }},
+          {{ x1: 615, x2: 825, y1: 385, y2: 535 }}
         ];
         for (let z of grassZones) {{
           for (let x = z.x1; x <= z.x2; x += 22) {{
@@ -120,9 +119,8 @@ def render():
           }}
         }}
 
-        // 2. 增加花朵数量至 24 朵（高低错落分布在水池四周、三棵树旁及右下草地，完全避开石头小路）
         const plantConfigs = [
-          // --- 区域一：左下角水池周围 & 左边大树旁（7朵花 + 1蘑菇） ---
+          // --- 区域一：左下角水池周围 & 左边大树旁 ---
           {{ x: 52,  y: 475, kind: 'flower',   variant: 0 }},
           {{ x: 78,  y: 515, kind: 'flower',   variant: 1 }},
           {{ x: 105, y: 495, kind: 'flower',   variant: 2 }},
@@ -132,7 +130,7 @@ def render():
           {{ x: 232, y: 518, kind: 'flower',   variant: 2 }},
           {{ x: 265, y: 534, kind: 'flower',   variant: 0 }},
 
-          // --- 区域二：水池右侧到石头小路左边（x <= 412，7朵花） ---
+          // --- 区域二：水池右侧到石头小路左边（x <= 412） ---
           {{ x: 325, y: 485, kind: 'flower',   variant: 1 }},
           {{ x: 348, y: 522, kind: 'flower',   variant: 2 }},
           {{ x: 368, y: 472, kind: 'flower',   variant: 0 }},
@@ -140,13 +138,13 @@ def render():
           {{ x: 406, y: 534, kind: 'flower',   variant: 2 }},
           {{ x: 408, y: 465, kind: 'flower',   variant: 0 }},
 
-          // --- 区域三：中间大树树干两侧（3朵花 + 1蘑菇） ---
+          // --- 区域三：中间大树树干两侧 ---
           {{ x: 332, y: 358, kind: 'flower',   variant: 2 }},
           {{ x: 354, y: 348, kind: 'flower',   variant: 1 }},
           {{ x: 398, y: 356, kind: 'mushroom', variant: 1 }},
           {{ x: 418, y: 348, kind: 'flower',   variant: 0 }},
 
-          // --- 区域四：石头小路右侧 & 右边大树旁（x >= 612，8朵花 + 1蘑菇） ---
+          // --- 区域四：石头小路右侧 & 右边大树旁（x >= 615） ---
           {{ x: 615, y: 478, kind: 'flower',   variant: 0 }},
           {{ x: 632, y: 522, kind: 'flower',   variant: 1 }},
           {{ x: 665, y: 492, kind: 'flower',   variant: 2 }},
@@ -157,6 +155,10 @@ def render():
           {{ x: 795, y: 415, kind: 'flower',   variant: 0 }},
           {{ x: 822, y: 375, kind: 'flower',   variant: 1 }}
         ];
+        for (let cfg of plantConfigs) {{
+          plants.push(new CustomPlant(cfg.x, cfg.y, cfg.kind, cfg.variant));
+        }}
+      }}
 
       function draw() {{
         if (bgImg) {{
@@ -191,7 +193,7 @@ def render():
           }}
         }}
 
-        if (gardenVitality > 0.55 && birds.length < 2 && frameCount % 90 === 0) {{
+        if (gardenVitality > 0.45 && birds.length < 2 && frameCount % 90 === 0) {{
           const treePerches = [
             {{ x: 112, y: 205 }},
             {{ x: 748, y: 195 }}
@@ -514,7 +516,7 @@ def render():
               let img = mushroomImgs.length > 0 ? mushroomImgs[this.variant % mushroomImgs.length] : null;
               if (img) {{
                 imageMode(CENTER);
-                let targetH = 44;
+                let targetH = 42;
                 let targetW = targetH * (img.width / img.height);
                 image(img, 0, -targetH * 0.45, targetW, targetH);
               }} else {{
@@ -560,7 +562,7 @@ def render():
               let img = flowerImgs.length > 0 ? flowerImgs[this.variant % flowerImgs.length] : null;
               if (img) {{
                 imageMode(CENTER);
-                let targetH = 52;
+                let targetH = 44;
                 let targetW = targetH * (img.width / img.height);
                 image(img, 0, -targetH * 0.15, targetW, targetH);
               }} else {{
