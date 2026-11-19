@@ -480,7 +480,7 @@ def render():
         jumpToNextPad() {{
           // 如果正在连跳中，防连击打断
           if (this.isJumping || this.remainingJumps > 0) return;
-          this.remainingJumps = 1; // 除当前第一跳外，落地后再自动连跳 1 下（共两下）
+          this.remainingJumps = 3; // 除当前第一跳外，落地后再自动连跳 1 下（共两下）
           this.startSingleHop();
         }}
         update() {{
