@@ -542,8 +542,8 @@ def render():
               push();
               translate(sway * 0.5, -curH * 0.45);
               scale(leafScale);
-              triangle(0, 0, -16, -7, -9, 4);
-              triangle(0, 0, 16, -9, 9, 2);
+              triangle(0, 0, -11, -5, -6, 3);
+              triangle(0, 0, 11, -6, 6, 2);
               pop();
             }}
 
