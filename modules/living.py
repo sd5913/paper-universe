@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击蘑菇屋的拱形木门唤醒花仙子，出屋后她会提起水壶；移动鼠标并点击/按住左键向左倾倒浇水，唤醒草地上的花朵、蘑菇与蝶鸟。"
+        "点击蘑菇屋的拱形木门唤醒花仙子；出屋后点击草地上的水壶拾起并移动浇水；浇完水后点击花仙子手边的水壶即可将其放回地上。"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -39,7 +39,6 @@ def render():
     m1_uri = load_asset_data_uri(["mushroom1.png", "mushroom1.PNG"])
     m2_uri = load_asset_data_uri(["mushroom2.png", "mushroom2.PNG"])
 
-    # 加载自定义小鸟图片（兼容单张 bird.png 或多张 bird1.png / bird2.png）
     b1_uri = load_asset_data_uri(["bird1.png", "bird1.PNG", "bird.png", "bird.PNG"])
     b2_uri = load_asset_data_uri(["bird2.png", "bird2.PNG"])
 
@@ -91,6 +90,14 @@ def render():
       let birds = [];
       let gardenVitality = 0;
       let hasWateredFlowers = false;
+
+      // 初始水桶放在屋前左侧草地上（避开石子路），等小精灵出屋后点击拾起
+      let groundBucket = {{
+        x: 365,
+        y: 445,
+        targetY: 445,
+        scale: 1
+      }};
 
       const DOOR_X = 562;
       const DOOR_Y = 326;
@@ -235,6 +242,9 @@ def render():
           }}
         }}
 
+        // 绘制放在地上的水桶（含轻柔呼吸微光提示可点击拾起）
+        drawGroundBucket();
+
         for (let b of butterflies) {{
           b.update();
           b.display();
@@ -244,20 +254,86 @@ def render():
           bird.display();
         }}
 
-        if (sceneState === "GARDEN_ACTIVE" && mouseIsPressed && frameCount % 7 === 0) {{
+        // 只有小精灵手里拿着水桶时，按住左键才会持续倒水
+        if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && mouseIsPressed && frameCount % 7 === 0) {{
           sprite.pourWater();
         }}
 
         sprite.update();
         sprite.display();
+        updateCursorStyle();
+      }}
+
+      function updateCursorStyle() {{
+        if (sceneState !== "GARDEN_ACTIVE") {{
+          cursor(HAND);
+          return;
+        }}
+        if (sprite.hasBucket && sprite.isPointOnBucket(mouseX, mouseY)) {{
+          cursor(HAND);
+        }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
+          cursor(HAND);
+        }} else {{
+          cursor(ARROW);
+        }}
       }}
 
       function mousePressed() {{
         if (sceneState === "HOUSE_CLOSED") {{
           sceneState = "SPRITE_EMERGING";
         }} else if (sceneState === "GARDEN_ACTIVE") {{
-          sprite.pourWater();
+          if (sprite.hasBucket) {{
+            // 拿着水桶时：点击水桶本身 -> 把水桶放在地上；点击其他地方 -> 倾倒浇水
+            if (sprite.isPointOnBucket(mouseX, mouseY)) {{
+              sprite.putBucketOnGround();
+            }} else {{
+              sprite.pourWater();
+            }}
+          }} else if (groundBucket) {{
+            // 出屋后空手时：点击地上的水桶 -> 拾起水桶准备浇水
+            if (dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 36) {{
+              sprite.pickUpBucket();
+            }}
+          }}
         }}
+      }}
+
+      function drawGroundBucket() {{
+        if (!groundBucket) return;
+
+        groundBucket.y = lerp(groundBucket.y, groundBucket.targetY, 0.16);
+        groundBucket.scale = lerp(groundBucket.scale, 1, 0.14);
+
+        push();
+        translate(groundBucket.x, groundBucket.y);
+        scale(groundBucket.scale);
+
+        // 落地接触阴影
+        noStroke();
+        fill(45, 55, 35, 48);
+        ellipse(0, 16, 34, 9);
+
+        // 当小精灵已出屋且空手时，给地上水桶加一圈柔和的暖光呼吸提示
+        if (sceneState === "GARDEN_ACTIVE" && !sprite.hasBucket) {{
+          let pulse = sin(frameCount * 0.09) * 0.5 + 0.5;
+          fill(255, 244, 185, 55 + pulse * 65);
+          circle(0, 0, 44 + pulse * 8);
+        }}
+
+        setPaperShadow(8, 2, 4, 'rgba(55, 65, 50, 0.24)');
+        if (bucketImg) {{
+          imageMode(CENTER);
+          let bH = 38;
+          let bW = bH * (bucketImg.width / bucketImg.height);
+          image(bucketImg, 0, 0, bW, bH);
+        }} else {{
+          fill('#a8c6df');
+          stroke('#6b655c');
+          strokeWeight(1.2);
+          quad(-9, -9, 9, -9, 6, 9, -6, 9);
+        }}
+        clearShadow();
+        pop();
       }}
 
       function triggerWaterImpact(wx, wy) {{
@@ -322,10 +398,52 @@ def render():
           this.trail = [];
           this.vx = 0;
 
+          // 出屋时默认空手，需点击地上的水桶才会拿起
           this.hasBucket = false;
           this.bucketScale = 0;
           this.bucketTilt = 0;
           this.pourTimer = 0;
+        }}
+        getBucketWorldPos() {{
+          return {{ x: this.x - 24, y: this.y + 20 }};
+        }}
+        isPointOnBucket(px, py) {{
+          if (!this.hasBucket) return false;
+          let pos = this.getBucketWorldPos();
+          return dist(px, py, pos.x, pos.y) < 30;
+        }}
+        putBucketOnGround() {{
+          let pos = this.getBucketWorldPos();
+          let landX = constrain(pos.x, 85, width - 85);
+          // 若当前在池塘正上方，自动挪到池塘右边草地上
+          if (landX < 310) {{
+            landX = max(landX, 320);
+          }}
+          // 若当前在中间石子路正上方（x: 435~595），稍微向左或向右错开一点放到草地上
+          if (landX > 435 && landX < 595) {{
+            landX = landX < 515 ? 420 : 610;
+          }}
+          let landY = constrain(pos.y + 130, 445, 515);
+
+          groundBucket = {{
+            x: landX,
+            y: pos.y,
+            targetY: landY,
+            scale: 0.9
+          }};
+
+          this.hasBucket = false;
+          this.bucketScale = 0;
+          this.pourTimer = 0;
+        }}
+        pickUpBucket() {{
+          if (!groundBucket) return;
+          // 花仙子飞向水桶位置并拾起水桶
+          this.targetX = groundBucket.x + 22;
+          this.targetY = groundBucket.y - 24;
+          this.hasBucket = true;
+          this.bucketScale = 0.2;
+          groundBucket = null;
         }}
         emergeTo(tx, ty) {{
           this.visible = true;
@@ -333,7 +451,7 @@ def render():
           this.targetY = ty;
           if (dist(this.x, this.y, tx, ty) < 20) {{
             sceneState = "GARDEN_ACTIVE";
-            this.hasBucket = true;
+            // 出屋到达花园后保持空手，等待用户点击地上的水桶
           }}
         }}
         pourWater() {{
@@ -348,7 +466,7 @@ def render():
         }}
         update() {{
           if (sceneState === "SPRITE_EMERGING") {{
-            this.emergeTo(430, 270);
+            this.emergeTo(430, 295);
           }}
           if (!this.visible) return;
           this.scaleVal = lerp(this.scaleVal, 1, 0.08);
@@ -365,7 +483,7 @@ def render():
           this.vx = this.x - prevX;
 
           if (this.hasBucket) {{
-            this.bucketScale = lerp(this.bucketScale, 1, 0.12);
+            this.bucketScale = lerp(this.bucketScale, 1, 0.14);
           }}
           if (this.pourTimer > 0) {{
             this.pourTimer--;
@@ -678,7 +796,6 @@ def render():
         }}
       }}
 
-      // ================== 自定义小鸟类（支持透明背景 PNG 素材） ==================
       class OrigamiBird {{
         constructor(x, y, tx, ty, variant = 0) {{
           this.x = x;
@@ -687,7 +804,7 @@ def render():
           this.ty = ty;
           this.variant = variant;
           this.perched = false;
-          this.facing = tx >= x ? 1 : -1; // 1 朝右，-1 朝左（左树朝右，右树朝左）
+          this.facing = tx >= x ? 1 : -1;
         }}
         update() {{
           if (!this.perched) {{
@@ -707,7 +824,6 @@ def render():
 
           let img = birdImgs.length > 0 ? birdImgs[this.variant % birdImgs.length] : null;
           if (img) {{
-            // 停驻后随微风轻轻晃动；飞行时带有轻盈的上下振翅缩放感
             let idleTilt = this.perched ? sin(frameCount * 0.04 + this.variant) * 0.05 : sin(frameCount * 0.25) * 0.08;
             let flapScaleY = this.perched ? 1 : (1 + sin(frameCount * 0.32) * 0.06);
 
@@ -715,11 +831,10 @@ def render():
             rotate(idleTilt);
 
             imageMode(CENTER);
-            let targetH = 44; // 小鸟显示高度（可根据实际素材大小微调此数字）
+            let targetH = 44;
             let targetW = targetH * (img.width / img.height);
             image(img, 0, -targetH * 0.35, targetW, targetH);
           }} else {{
-            // 保底折纸红雀
             noStroke();
             fill('#e63946');
             triangle(-14, 0, 8, -8, 4, 6);
