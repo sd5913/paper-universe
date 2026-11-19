@@ -576,7 +576,7 @@ def render():
         isPointOnBucket(px, py) {{
           if (!this.hasBucket) return false;
           let pos = this.getBucketWorldPos();
-          return dist(px, py, pos.x, pos.y) < 30;
+          return dist(px, py, pos.x, pos.y) < 18;
         }}
         scoopWater(px, py) {{
           if (!this.hasBucket) return;
