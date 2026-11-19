@@ -39,6 +39,10 @@ def render():
     m1_uri = load_asset_data_uri(["mushroom1.png", "mushroom1.PNG"])
     m2_uri = load_asset_data_uri(["mushroom2.png", "mushroom2.PNG"])
 
+    # 加载自定义小鸟图片（兼容单张 bird.png 或多张 bird1.png / bird2.png）
+    b1_uri = load_asset_data_uri(["bird1.png", "bird1.PNG", "bird.png", "bird.PNG"])
+    b2_uri = load_asset_data_uri(["bird2.png", "bird2.PNG"])
+
     p5_html = f"""
     <!DOCTYPE html>
     <html lang="zh">
@@ -67,12 +71,14 @@ def render():
       const BUCKET_IMG_DATA = "{bucket_data_uri}";
       const FLOWER_URIS = ["{f1_uri}", "{f2_uri}", "{f3_uri}"];
       const MUSHROOM_URIS = ["{m1_uri}", "{m2_uri}"];
+      const BIRD_URIS = ["{b1_uri}", "{b2_uri}"];
 
       let bgImg = null;
       let fairyImg = null;
       let bucketImg = null;
       let flowerImgs = [];
       let mushroomImgs = [];
+      let birdImgs = [];
 
       let sceneState = "HOUSE_CLOSED";
       let doorGlow = 0;
@@ -84,7 +90,7 @@ def render():
       let butterflies = [];
       let birds = [];
       let gardenVitality = 0;
-      let hasWateredFlowers = false; // 记录是否已经开始给花朵浇水
+      let hasWateredFlowers = false;
 
       const DOOR_X = 562;
       const DOOR_Y = 326;
@@ -99,6 +105,9 @@ def render():
         }}
         for (let uri of MUSHROOM_URIS) {{
           if (uri && uri.length > 0) mushroomImgs.push(loadImage(uri));
+        }}
+        for (let uri of BIRD_URIS) {{
+          if (uri && uri.length > 0) birdImgs.push(loadImage(uri));
         }}
       }}
 
@@ -192,7 +201,6 @@ def render():
         }}
         gardenVitality = totalBloom / plants.length;
 
-        // 只有在给花朵浇水后（hasWateredFlowers 为 true）且有花朵开始绽放时，才召唤蝴蝶
         if (hasWateredFlowers && bloomedCount >= 1) {{
           let targetButterflyCount = min(7, 2 + floor(bloomedCount / 3));
           if (butterflies.length < targetButterflyCount && frameCount % 55 === 0) {{
@@ -207,8 +215,9 @@ def render():
             {{ x: 112, y: 205 }},
             {{ x: 748, y: 195 }}
           ];
-          let perch = treePerches[birds.length];
-          birds.push(new OrigamiBird(birds.length === 0 ? -30 : width + 30, random(90, 160), perch.x, perch.y));
+          let idx = birds.length;
+          let perch = treePerches[idx];
+          birds.push(new OrigamiBird(idx === 0 ? -35 : width + 35, random(90, 160), perch.x, perch.y, idx));
         }}
 
         for (let i = ripples.length - 1; i >= 0; i--) {{
@@ -263,7 +272,7 @@ def render():
           if (dist(p.x, p.y, wx, wy) < 115) {{
             p.targetBloom = min(1, p.targetBloom + 0.48);
             if (p.kind === 'flower') {{
-              hasWateredFlowers = true; // 浇灌到花朵，正式激活蝴蝶出现条件
+              hasWateredFlowers = true;
             }}
           }}
         }}
@@ -276,15 +285,15 @@ def render():
           let pulse = sin(frameCount * 0.08) * 0.5 + 0.5;
           noStroke();
           fill(255, 238, 170, 70 + pulse * 85);
-          circle(0, 0, 48 + pulse * 10); // 改为正圆形
+          circle(0, 0, 48 + pulse * 10);
 
           fill(255, 250, 220, 180 + pulse * 75);
-          circle(0, sin(frameCount * 0.06) * 4, 7); // 中心小光点也对齐圆心
+          circle(0, sin(frameCount * 0.06) * 4, 7);
         }} else {{
           doorGlow = lerp(doorGlow, 1, 0.05);
           noStroke();
           fill(255, 240, 185, (1 - doorGlow) * 140);
-          circle(0, 0, 52 + doorGlow * 40); // 扩散光晕也改为正圆形
+          circle(0, 0, 52 + doorGlow * 40);
         }}
         pop();
       }}
@@ -596,7 +605,6 @@ def render():
         }}
       }}
 
-      // ================== 折纸蝴蝶：浇水后出现，慢速轻盈地围绕花朵飞舞 ==================
       class OrigamiButterfly {{
         constructor(x, y) {{
           this.x = x;
@@ -608,7 +616,7 @@ def render():
           this.switchTimer = int(random(180, 340));
           this.orbitAngle = random(TWO_PI);
           this.orbitDir = random([-1, 1]);
-          this.appearScale = 0.05; // 出现时由小变大平滑浮现
+          this.appearScale = 0.05;
         }}
         pickNewFlower() {{
           let bloomedFlowers = plants.filter(p => p.kind === 'flower' && p.bloom > 0.45);
@@ -621,15 +629,14 @@ def render():
         }}
         update() {{
           this.appearScale = lerp(this.appearScale, 1, 0.04);
-          this.seed += 0.012; // 慢速柔和的摆动节拍
+          this.seed += 0.012;
           this.switchTimer--;
           if (!this.targetPlant || this.switchTimer <= 0) {{
             this.pickNewFlower();
-            this.switchTimer = int(random(240, 420)); // 在每朵花旁悠闲多停留一会儿
+            this.switchTimer = int(random(240, 420));
           }}
 
           if (this.targetPlant) {{
-            // 减慢盘旋角速度与飞行跟随速度（从 0.035 降至 0.012）
             this.orbitAngle += 0.012 * this.orbitDir;
             let destX = this.targetPlant.x + cos(this.orbitAngle) * 28;
             let destY = (this.targetPlant.y - this.targetPlant.stemHeight - 16) + sin(this.orbitAngle * 1.4) * 10;
@@ -644,7 +651,7 @@ def render():
           this.y = constrain(this.y, 260, 525);
         }}
         display() {{
-          let flap = cos(frameCount * 0.16 + this.seed * 10); // 慢速优雅扇翅
+          let flap = cos(frameCount * 0.16 + this.seed * 10);
           push();
           translate(this.x, this.y);
           rotate(sin(this.seed * 2) * 0.22);
@@ -671,18 +678,21 @@ def render():
         }}
       }}
 
+      // ================== 自定义小鸟类（支持透明背景 PNG 素材） ==================
       class OrigamiBird {{
-        constructor(x, y, tx, ty) {{
+        constructor(x, y, tx, ty, variant = 0) {{
           this.x = x;
           this.y = y;
           this.tx = tx;
           this.ty = ty;
+          this.variant = variant;
           this.perched = false;
+          this.facing = tx >= x ? 1 : -1; // 1 朝右，-1 朝左（左树朝右，右树朝左）
         }}
         update() {{
           if (!this.perched) {{
-            this.x = lerp(this.x, this.tx, 0.035);
-            this.y = lerp(this.y, this.ty + sin(frameCount * 0.1) * 5, 0.035);
+            this.x = lerp(this.x, this.tx, 0.032);
+            this.y = lerp(this.y, this.ty + sin(frameCount * 0.1) * 5, 0.032);
             if (dist(this.x, this.y, this.tx, this.ty) < 6) {{
               this.perched = true;
               this.x = this.tx;
@@ -693,22 +703,38 @@ def render():
         display() {{
           push();
           translate(this.x, this.y);
-          setPaperShadow(8, 2, 4);
-          noStroke();
+          setPaperShadow(8, 2, 4, 'rgba(45, 40, 35, 0.24)');
 
-          fill('#e63946');
-          triangle(-14, 0, 8, -8, 4, 6);
-          fill('#c1121f');
-          triangle(-14, 0, -24, -8, -20, 2);
-          fill('#f1faee');
-          triangle(4, -5, 14, -12, 14, -2);
-          fill('#ffb703');
-          triangle(14, -9, 21, -7, 14, -5);
+          let img = birdImgs.length > 0 ? birdImgs[this.variant % birdImgs.length] : null;
+          if (img) {{
+            // 停驻后随微风轻轻晃动；飞行时带有轻盈的上下振翅缩放感
+            let idleTilt = this.perched ? sin(frameCount * 0.04 + this.variant) * 0.05 : sin(frameCount * 0.25) * 0.08;
+            let flapScaleY = this.perched ? 1 : (1 + sin(frameCount * 0.32) * 0.06);
 
-          if (!this.perched) {{
-            let wingY = sin(frameCount * 0.35) * 14;
-            fill('#ffffff');
-            triangle(-4, -3, 4, -3, -6, -16 + wingY);
+            scale(this.facing, flapScaleY);
+            rotate(idleTilt);
+
+            imageMode(CENTER);
+            let targetH = 44; // 小鸟显示高度（可根据实际素材大小微调此数字）
+            let targetW = targetH * (img.width / img.height);
+            image(img, 0, -targetH * 0.35, targetW, targetH);
+          }} else {{
+            // 保底折纸红雀
+            noStroke();
+            fill('#e63946');
+            triangle(-14, 0, 8, -8, 4, 6);
+            fill('#c1121f');
+            triangle(-14, 0, -24, -8, -20, 2);
+            fill('#f1faee');
+            triangle(4, -5, 14, -12, 14, -2);
+            fill('#ffb703');
+            triangle(14, -9, 21, -7, 14, -5);
+
+            if (!this.perched) {{
+              let wingY = sin(frameCount * 0.35) * 14;
+              fill('#ffffff');
+              triangle(-4, -3, 4, -3, -6, -16 + wingY);
+            }}
           }}
 
           clearShadow();
