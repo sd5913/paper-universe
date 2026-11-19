@@ -120,31 +120,43 @@ def render():
           }}
         }}
 
-        // 2. 花朵与蘑菇坐标（覆盖左下水池旁、三棵树旁，完全避开中间 x:420~605 的石头小路）
+        // 2. 增加花朵数量至 24 朵（高低错落分布在水池四周、三棵树旁及右下草地，完全避开石头小路）
         const plantConfigs = [
-          // --- 左下角水池旁 & 左边大树旁 ---
-          {{ x: 68,  y: 485, kind: 'flower',   variant: 0 }}, // 左树干左侧草地
-          {{ x: 115, y: 525, kind: 'flower',   variant: 1 }}, // 左下水池正下方
-          {{ x: 168, y: 512, kind: 'mushroom', variant: 0 }}, // 左下水池旁小蘑菇
-          {{ x: 215, y: 532, kind: 'flower',   variant: 2 }}, // 水池下缘偏右
+          // --- 区域一：左下角水池周围 & 左边大树旁（7朵花 + 1蘑菇） ---
+          {{ x: 52,  y: 475, kind: 'flower',   variant: 0 }},
+          {{ x: 78,  y: 515, kind: 'flower',   variant: 1 }},
+          {{ x: 105, y: 495, kind: 'flower',   variant: 2 }},
+          {{ x: 135, y: 535, kind: 'flower',   variant: 0 }},
+          {{ x: 168, y: 512, kind: 'mushroom', variant: 0 }},
+          {{ x: 198, y: 536, kind: 'flower',   variant: 1 }},
+          {{ x: 232, y: 518, kind: 'flower',   variant: 2 }},
+          {{ x: 265, y: 534, kind: 'flower',   variant: 0 }},
 
-          // --- 中间大树旁 & 水池右侧（石头小路左边，x <= 410） ---
-          {{ x: 348, y: 355, kind: 'flower',   variant: 1 }}, // 中间大树左侧树根旁
-          {{ x: 402, y: 358, kind: 'mushroom', variant: 1 }}, // 中间大树右侧树根旁
-          {{ x: 362, y: 495, kind: 'flower',   variant: 0 }}, // 水池右边草地
-          {{ x: 405, y: 525, kind: 'flower',   variant: 2 }}, // 紧贴小路左侧边缘（不遮挡小路）
+          // --- 区域二：水池右侧到石头小路左边（x <= 412，7朵花） ---
+          {{ x: 325, y: 485, kind: 'flower',   variant: 1 }},
+          {{ x: 348, y: 522, kind: 'flower',   variant: 2 }},
+          {{ x: 368, y: 472, kind: 'flower',   variant: 0 }},
+          {{ x: 385, y: 505, kind: 'flower',   variant: 1 }},
+          {{ x: 406, y: 534, kind: 'flower',   variant: 2 }},
+          {{ x: 408, y: 465, kind: 'flower',   variant: 0 }},
 
-          // --- 石头小路右侧 & 右边大树旁（x >= 615） ---
-          {{ x: 620, y: 495, kind: 'flower',   variant: 1 }}, // 小路右侧草地
-          {{ x: 668, y: 522, kind: 'mushroom', variant: 0 }}, // 右下草地蘑菇
-          {{ x: 715, y: 485, kind: 'flower',   variant: 2 }}, // 右侧花丛
-          {{ x: 755, y: 440, kind: 'flower',   variant: 0 }}, // 右边大树左下侧
-          {{ x: 812, y: 375, kind: 'flower',   variant: 1 }}  // 右边大树树干右侧
+          // --- 区域三：中间大树树干两侧（3朵花 + 1蘑菇） ---
+          {{ x: 332, y: 358, kind: 'flower',   variant: 2 }},
+          {{ x: 354, y: 348, kind: 'flower',   variant: 1 }},
+          {{ x: 398, y: 356, kind: 'mushroom', variant: 1 }},
+          {{ x: 418, y: 348, kind: 'flower',   variant: 0 }},
+
+          // --- 区域四：石头小路右侧 & 右边大树旁（x >= 612，8朵花 + 1蘑菇） ---
+          {{ x: 615, y: 478, kind: 'flower',   variant: 0 }},
+          {{ x: 632, y: 522, kind: 'flower',   variant: 1 }},
+          {{ x: 665, y: 492, kind: 'flower',   variant: 2 }},
+          {{ x: 675, y: 532, kind: 'mushroom', variant: 0 }},
+          {{ x: 705, y: 512, kind: 'flower',   variant: 0 }},
+          {{ x: 735, y: 478, kind: 'flower',   variant: 1 }},
+          {{ x: 765, y: 445, kind: 'flower',   variant: 2 }},
+          {{ x: 795, y: 415, kind: 'flower',   variant: 0 }},
+          {{ x: 822, y: 375, kind: 'flower',   variant: 1 }}
         ];
-        for (let cfg of plantConfigs) {{
-          plants.push(new CustomPlant(cfg.x, cfg.y, cfg.kind, cfg.variant));
-        }}
-      }}
 
       function draw() {{
         if (bgImg) {{
