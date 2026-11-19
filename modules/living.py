@@ -318,20 +318,20 @@ def render():
         if (sceneState === "HOUSE_CLOSED") {{
           sceneState = "SPRITE_EMERGING";
         }} else if (sceneState === "GARDEN_ACTIVE") {{
-          // 1. 优先判断：直接点击到小青蛙本体 -> 仅触发小青蛙在荷叶上跳跃（不触发取水）
+          // 1. 优先判断：直接点击到小青蛙本体 -> 仅触发小青蛙跳跃
           if (frog.isPointOnFrog(mouseX, mouseY)) {{
             frog.jumpToNextPad();
             return;
           }}
 
           if (sprite.hasBucket) {{
-            // 2. 点击手持水桶 -> 放在地上
-            if (sprite.isPointOnBucket(mouseX, mouseY)) {{
-              sprite.putBucketOnGround();
-            }}
-            // 3. 点击水池蓝色水面（未点到青蛙） -> 专心舀水（不触发青蛙跳动）
-            else if (isPointInPond(mouseX, mouseY)) {{
+            // 2. 只要鼠标在水池范围内点击 -> 优先执行舀水，绝不误触放下水桶
+            if (isPointInPond(mouseX, mouseY)) {{
               sprite.scoopWater(mouseX, mouseY);
+            }}
+            // 3. 在水池外精准点击水桶本体 -> 把水桶放在地上
+            else if (sprite.isPointOnBucket(mouseX, mouseY)) {{
+              sprite.putBucketOnGround();
             }}
             // 4. 已舀水后点击草地 -> 倾倒浇水
             else if (sprite.bucketHasWater) {{
@@ -339,7 +339,7 @@ def render():
             }}
           }} else {{
             // 5. 空手时点击地上的水桶 -> 拾起水桶
-            if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 36) {{
+            if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
               sprite.pickUpBucket();
             }}
           }}
