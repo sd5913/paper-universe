@@ -88,11 +88,12 @@ def render():
       let ripples = [];
       let butterflies = [];
       let birds = [];
+      let clouds = [];
+      let skyPatchImg = null;
       let gardenVitality = 0;
       let hasWateredFlowers = false;
-      let hasPickedBucketOnce = false; // 记录是否已经拾起过水桶，放下后不再显示黄色光晕
+      let hasPickedBucketOnce = false;
 
-      // 初始水桶放在屋前左侧草地上（避开石子路）
       let groundBucket = {{
         x: 365,
         y: 445,
@@ -103,12 +104,10 @@ def render():
       const DOOR_X = 562;
       const DOOR_Y = 326;
 
-      // 左下角荷花池中心坐标与范围
       const POND_X = 195;
       const POND_Y = 382;
 
       function isPointInPond(px, py) {{
-        // 椭圆检测荷花池区域
         let dx = (px - POND_X) / 132;
         let dy = (py - POND_Y) / 68;
         return (dx * dx + dy * dy) <= 1.05;
@@ -133,6 +132,19 @@ def render():
       function setup() {{
         createCanvas(860, 560);
         angleMode(RADIANS);
+
+        // 从背景图顶部纯蓝天空采样带纸纹的天空切片，用于无缝替换原图中的 4 朵静态云
+        if (bgImg) {{
+          skyPatchImg = bgImg.get(int(bgImg.width * 0.36), 8, int(bgImg.width * 0.14), int(bgImg.height * 0.12));
+        }}
+
+        // 初始化 4 朵剪纸云（对齐背景图原本 4 朵云的构图位置，各自带有轻柔左右飘动参数）
+        clouds = [
+          {{ baseX: 212, y: 78,  scale: 1.05, amp: 13, speed: 0.012, phase: 0.0 }},
+          {{ baseX: 306, y: 150, scale: 0.68, amp: 10, speed: 0.015, phase: 1.8 }},
+          {{ baseX: 506, y: 122, scale: 0.72, amp: 11, speed: 0.013, phase: 3.4 }},
+          {{ baseX: 614, y: 68,  scale: 0.98, amp: 14, speed: 0.011, phase: 5.0 }}
+        ];
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
 
@@ -203,6 +215,9 @@ def render():
           background('#f7f2e7');
         }}
 
+        // 绘制左右轻微飘动的剪纸云朵（位于树冠后方，自然融入背景）
+        drawDriftingClouds();
+
         drawDoorPortal();
         drawPondHint();
 
@@ -266,7 +281,6 @@ def render():
           bird.display();
         }}
 
-        // 只有拿着水桶且已经舀水后，按住左键才会持续倒水
         if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % 7 === 0) {{
           if (!isPointInPond(mouseX, mouseY)) {{
             sprite.pourWater();
@@ -278,8 +292,38 @@ def render():
         updateCursorStyle();
       }}
 
+      function drawDriftingClouds() {{
+        // 1. 先用带纸纹的天空贴片盖住背景图上原本的 4 朵静态云（避开左右树梢区域）
+        if (skyPatchImg) {{
+          imageMode(CENTER);
+          image(skyPatchImg, 212, 78,  132, 76);
+          image(skyPatchImg, 306, 150, 92,  56);
+          image(skyPatchImg, 506, 122, 96,  58);
+          image(skyPatchImg, 614, 68,  126, 74);
+        }}
+
+        // 2. 在对应位置绘制 4 朵随微风左右轻微飘动的米白色剪纸云
+        for (let c of clouds) {{
+          let offsetX = sin(frameCount * c.speed + c.phase) * c.amp;
+          push();
+          translate(c.baseX + offsetX, c.y);
+          scale(c.scale);
+          setPaperShadow(8, 2, 4, 'rgba(65, 85, 110, 0.14)');
+          noStroke();
+          fill('#f4efe4');
+
+          // 剪纸拼贴蓬松云朵造型
+          ellipse(-28, 8, 44, 34);
+          ellipse(0, -4, 54, 46);
+          ellipse(28, 7, 46, 36);
+          rect(-30, 4, 60, 20, 10);
+
+          clearShadow();
+          pop();
+        }}
+      }}
+
       function drawPondHint() {{
-        // 当花仙子拿着空水桶准备舀水时，荷花池水面泛起轻柔的水波提示
         if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && !sprite.bucketHasWater) {{
           push();
           translate(POND_X, POND_Y);
@@ -313,20 +357,14 @@ def render():
           sceneState = "SPRITE_EMERGING";
         }} else if (sceneState === "GARDEN_ACTIVE") {{
           if (sprite.hasBucket) {{
-            // 1. 点击水桶 -> 把水桶放在地上
             if (sprite.isPointOnBucket(mouseX, mouseY)) {{
               sprite.putBucketOnGround();
-            }}
-            // 2. 点击荷花池 -> 舀水装满水桶
-            else if (isPointInPond(mouseX, mouseY)) {{
+            }} else if (isPointInPond(mouseX, mouseY)) {{
               sprite.scoopWater(mouseX, mouseY);
-            }}
-            // 3. 已经舀水后点击草地 -> 倾倒浇水
-            else if (sprite.bucketHasWater) {{
+            }} else if (sprite.bucketHasWater) {{
               sprite.pourWater();
             }}
           }} else if (groundBucket) {{
-            // 4. 空手时点击地上的水桶 -> 拾起水桶
             if (dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 36) {{
               sprite.pickUpBucket();
             }}
@@ -344,12 +382,10 @@ def render():
         translate(groundBucket.x, groundBucket.y);
         scale(groundBucket.scale);
 
-        // 落地接触阴影
         noStroke();
         fill(45, 55, 35, 48);
         ellipse(0, 16, 34, 9);
 
-        // 仅在出屋后且从未拾起过水桶时显示黄色呼吸光晕；放回地上后不再出现黄色光标
         if (sceneState === "GARDEN_ACTIVE" && !sprite.hasBucket && !hasPickedBucketOnce) {{
           let pulse = sin(frameCount * 0.09) * 0.5 + 0.5;
           fill(255, 244, 185, 55 + pulse * 65);
@@ -435,7 +471,7 @@ def render():
           this.vx = 0;
 
           this.hasBucket = false;
-          this.bucketHasWater = false; // 初始水桶为空，点击水池舀水后变为 true
+          this.bucketHasWater = false;
           this.bucketScale = 0;
           this.bucketTilt = 0;
           this.pourTimer = 0;
@@ -452,8 +488,7 @@ def render():
         scoopWater(px, py) {{
           if (!this.hasBucket) return;
           this.bucketHasWater = true;
-          this.scoopTimer = 18; // 触发舀水俯身动作
-          // 在水池点击处激起两圈清澈的水波纹
+          this.scoopTimer = 18;
           ripples.push(new PaperRipple(px, py));
           ripples.push(new PaperRipple(px + random(-14, 14), py + random(-8, 8)));
         }}
@@ -482,7 +517,7 @@ def render():
         }}
         pickUpBucket() {{
           if (!groundBucket) return;
-          hasPickedBucketOnce = true; // 标记已拾起过水桶，此后放下不再显示黄色光晕
+          hasPickedBucketOnce = true;
           this.targetX = groundBucket.x + 22;
           this.targetY = groundBucket.y - 24;
           this.hasBucket = true;
@@ -584,13 +619,6 @@ def render():
               stroke('#6b655c');
               strokeWeight(1.2);
               quad(-9, 0, 9, 0, 6, 18, -6, 18);
-            }}
-
-            // 如果水桶已舀满水，在桶口上方显示一颗晶莹的小水滴状态指示
-            if (this.bucketHasWater) {{
-              noStroke();
-              fill('#7ec8e3');
-              circle(-2, -13 + sin(frameCount * 0.14) * 2, 6.5);
             }}
             pop();
           }}
