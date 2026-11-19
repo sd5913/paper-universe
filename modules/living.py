@@ -88,8 +88,6 @@ def render():
       let ripples = [];
       let butterflies = [];
       let birds = [];
-      let clouds = [];
-      let skyPatchImg = null;
       let gardenVitality = 0;
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
@@ -132,19 +130,6 @@ def render():
       function setup() {{
         createCanvas(860, 560);
         angleMode(RADIANS);
-
-        // 从背景图顶部纯蓝天空采样带纸纹的天空切片，用于无缝替换原图中的 4 朵静态云
-        if (bgImg) {{
-          skyPatchImg = bgImg.get(int(bgImg.width * 0.36), 8, int(bgImg.width * 0.14), int(bgImg.height * 0.12));
-        }}
-
-        // 初始化 4 朵剪纸云（对齐背景图原本 4 朵云的构图位置，各自带有轻柔左右飘动参数）
-        clouds = [
-          {{ baseX: 212, y: 78,  scale: 1.05, amp: 13, speed: 0.012, phase: 0.0 }},
-          {{ baseX: 306, y: 150, scale: 0.68, amp: 10, speed: 0.015, phase: 1.8 }},
-          {{ baseX: 506, y: 122, scale: 0.72, amp: 11, speed: 0.013, phase: 3.4 }},
-          {{ baseX: 614, y: 68,  scale: 0.98, amp: 14, speed: 0.011, phase: 5.0 }}
-        ];
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
 
@@ -214,9 +199,6 @@ def render():
         }} else {{
           background('#f7f2e7');
         }}
-
-        // 绘制左右轻微飘动的剪纸云朵（位于树冠后方，自然融入背景）
-        drawDriftingClouds();
 
         drawDoorPortal();
         drawPondHint();
@@ -290,37 +272,6 @@ def render():
         sprite.update();
         sprite.display();
         updateCursorStyle();
-      }}
-
-      function drawDriftingClouds() {{
-        // 1. 先用带纸纹的天空贴片盖住背景图上原本的 4 朵静态云（避开左右树梢区域）
-        if (skyPatchImg) {{
-          imageMode(CENTER);
-          image(skyPatchImg, 212, 78,  132, 76);
-          image(skyPatchImg, 306, 150, 92,  56);
-          image(skyPatchImg, 506, 122, 96,  58);
-          image(skyPatchImg, 614, 68,  126, 74);
-        }}
-
-        // 2. 在对应位置绘制 4 朵随微风左右轻微飘动的米白色剪纸云
-        for (let c of clouds) {{
-          let offsetX = sin(frameCount * c.speed + c.phase) * c.amp;
-          push();
-          translate(c.baseX + offsetX, c.y);
-          scale(c.scale);
-          setPaperShadow(8, 2, 4, 'rgba(65, 85, 110, 0.14)');
-          noStroke();
-          fill('#f4efe4');
-
-          // 剪纸拼贴蓬松云朵造型
-          ellipse(-28, 8, 44, 34);
-          ellipse(0, -4, 54, 46);
-          ellipse(28, 7, 46, 36);
-          rect(-30, 4, 60, 20, 10);
-
-          clearShadow();
-          pop();
-        }}
       }}
 
       function drawPondHint() {{
