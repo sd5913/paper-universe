@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击蘑菇屋的拱形木门唤醒花仙子；点击荷叶上的小青蛙可让它连跳四下；点击门前彩色鹅卵石可奏出晨露音阶；拾起水壶并在水池蓝色水面舀水后，即可浇灌草地上的花朵与蘑菇。"
+        "点击蘑菇屋的拱形木门唤醒花仙子；点击烟囱可冒出剪纸烟圈，点击窗户可点亮暖黄灯光；点击荷叶小青蛙连跳四下，点击门前鹅卵石奏响音阶；拾起水壶舀水后即可浇灌花园。"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -93,6 +93,10 @@ def render():
       let butterflies = [];
       let birds = [];
       let stepStones = [];
+      let smokePuffs = [];
+      let houseWindows = [];
+      let chimneySmokeQueue = 0;
+      let chimneySmokeTimer = 0;
       let gardenVitality = 0;
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
@@ -131,6 +135,27 @@ def render():
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + duration + 0.02);
+      }}
+
+      function playSmokePuffSound() {{
+        let ctx = ensureAudio();
+        if (!ctx) return;
+        let now = ctx.currentTime;
+
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.exponentialRampToValueAtTime(165, now + 0.28);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.06, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.32);
       }}
 
       function playWaterDropSound(isScoop = false) {{
@@ -194,10 +219,19 @@ def render():
       const POND_X = 195;
       const POND_Y = 382;
 
+      // 蘑菇屋砖红烟囱中心与烟囱口坐标
+      const CHIMNEY_X = 622;
+      const CHIMNEY_Y = 216;
+      const CHIMNEY_TOP_Y = 178;
+
       function isPointInPond(px, py) {{
         let dx = (px - POND_X) / 132;
         let dy = (py - POND_Y) / 68;
         return (dx * dx + dy * dy) <= 1.05;
+      }}
+
+      function isPointOnChimney(px, py) {{
+        return abs(px - CHIMNEY_X) <= 22 && py >= 168 && py <= 245;
       }}
 
       function isPointOnMuteButton(px, py) {{
@@ -228,16 +262,22 @@ def render():
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
         frog = new OrigamiFrog();
 
-        // 门前 8 颗彩色鹅卵石音阶（C5 大调音阶 Do Re Mi Fa Sol La Si Do）
+        // 对齐蘑菇屋左右两扇蓝色窗户（点击可点亮暖黄烛光）
+        houseWindows = [
+          {{ x: 464, y: 316, w: 38, h: 36, lit: false, glow: 0, prop: 'teapot' }},
+          {{ x: 638, y: 316, w: 38, h: 36, lit: false, glow: 0, prop: 'plant' }}
+        ];
+
+        // 门前 8 颗彩色鹅卵石音阶
         const stoneNotes = [
-          {{ x: 545, y: 392, freq: 523.25 }}, // Do
-          {{ x: 514, y: 405, freq: 587.33 }}, // Re
-          {{ x: 552, y: 418, freq: 659.25 }}, // Mi
-          {{ x: 506, y: 428, freq: 698.46 }}, // Fa
-          {{ x: 536, y: 438, freq: 783.99 }}, // Sol
-          {{ x: 472, y: 444, freq: 880.00 }}, // La
-          {{ x: 512, y: 458, freq: 987.77 }}, // Si
-          {{ x: 454, y: 465, freq: 1046.50 }} // Do'
+          {{ x: 545, y: 392, freq: 523.25 }},
+          {{ x: 514, y: 405, freq: 587.33 }},
+          {{ x: 552, y: 418, freq: 659.25 }},
+          {{ x: 506, y: 428, freq: 698.46 }},
+          {{ x: 536, y: 438, freq: 783.99 }},
+          {{ x: 472, y: 444, freq: 880.00 }},
+          {{ x: 512, y: 458, freq: 987.77 }},
+          {{ x: 454, y: 465, freq: 1046.50 }}
         ];
         for (let s of stoneNotes) {{
           stepStones.push({{ x: s.x, y: s.y, freq: s.freq, glow: 0 }});
@@ -310,6 +350,12 @@ def render():
           background('#f7f2e7');
         }}
 
+        // 绘制烟囱冒出的剪纸小烟圈（位于屋顶之后/上方自然飘散）
+        updateAndDrawSmoke();
+
+        // 绘制蘑菇屋左右暖黄窗户灯光
+        drawHouseWindows();
+
         drawDoorPortal();
         drawPondHint();
         drawStepStonesGlow();
@@ -378,7 +424,11 @@ def render():
         }}
 
         if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % 7 === 0) {{
-          if (!isPointInPond(mouseX, mouseY) && !frog.isPointOnFrog(mouseX, mouseY) && !isPointOnMuteButton(mouseX, mouseY)) {{
+          if (!isPointInPond(mouseX, mouseY) &&
+              !frog.isPointOnFrog(mouseX, mouseY) &&
+              !isPointOnChimney(mouseX, mouseY) &&
+              !getHoveredWindow(mouseX, mouseY) &&
+              !isPointOnMuteButton(mouseX, mouseY)) {{
             sprite.pourWater();
           }}
         }}
@@ -387,6 +437,108 @@ def render():
         sprite.display();
         drawAudioToggleButton();
         updateCursorStyle();
+      }}
+
+      // ================== 烟囱剪纸小烟圈生成与绘制 ==================
+      function triggerChimneySmoke() {{
+        chimneySmokeQueue = 4; // 连续冒出 4 朵剪纸小烟圈
+        chimneySmokeTimer = 0;
+        playSmokePuffSound();
+      }}
+
+      function updateAndDrawSmoke() {{
+        if (chimneySmokeQueue > 0) {{
+          if (chimneySmokeTimer <= 0) {{
+            smokePuffs.push({{
+              x: CHIMNEY_X + random(-3, 3),
+              y: CHIMNEY_TOP_Y,
+              vx: random(0.25, 0.55),
+              vy: random(-0.95, -0.65),
+              size: random(14, 18),
+              maxSize: random(34, 44),
+              alpha: 235,
+              phase: random(TWO_PI)
+            }});
+            chimneySmokeQueue--;
+            chimneySmokeTimer = 16; // 每隔 16 帧冒出一朵
+          }} else {{
+            chimneySmokeTimer--;
+          }}
+        }}
+
+        for (let i = smokePuffs.length - 1; i >= 0; i--) {{
+          let s = smokePuffs[i];
+          s.x += s.vx + sin(frameCount * 0.04 + s.phase) * 0.25;
+          s.y += s.vy;
+          s.size = lerp(s.size, s.maxSize, 0.03);
+          s.alpha -= 1.45;
+
+          if (s.alpha <= 0) {{
+            smokePuffs.splice(i, 1);
+            continue;
+          }}
+
+          push();
+          translate(s.x, s.y);
+          setPaperShadow(6, 1, 3, `rgba(70, 80, 95, ${{ (s.alpha / 255) * 0.16 }})`);
+          noStroke();
+          fill(248, 244, 234, s.alpha);
+          // 剪纸蓬松三圆小烟圈造型
+          circle(-s.size * 0.25, 0, s.size * 0.72);
+          circle(s.size * 0.22, -s.size * 0.08, s.size * 0.68);
+          circle(0, -s.size * 0.22, s.size * 0.78);
+          clearShadow();
+          pop();
+        }}
+      }}
+
+      // ================== 小屋左右窗户暖黄灯光绘制 ==================
+      function getHoveredWindow(px, py) {{
+        for (let win of houseWindows) {{
+          if (abs(px - win.x) <= win.w / 2 + 4 && abs(py - win.y) <= win.h / 2 + 4) {{
+            return win;
+          }}
+        }}
+        return null;
+      }}
+
+      function drawHouseWindows() {{
+        for (let win of houseWindows) {{
+          win.glow = lerp(win.glow, win.lit ? 1 : 0, 0.1);
+          if (win.glow <= 0.01) continue;
+
+          push();
+          translate(win.x, win.y);
+          let flicker = 1 + sin(frameCount * 0.14 + win.x) * 0.04;
+
+          // 窗外溢出的柔和暖黄光晕
+          noStroke();
+          fill(255, 224, 130, win.glow * 75 * flicker);
+          ellipse(0, 0, (win.w + 26) * flicker, (win.h + 24) * flicker);
+
+          // 窗玻璃暖琥珀色填充
+          rectMode(CENTER);
+          fill(255, 218, 118, win.glow * 235);
+          rect(0, 0, win.w - 4, win.h - 4, 2);
+
+          // 窗内剪纸小剪影（左窗小茶壶、右窗小花盆）
+          fill(218, 152, 72, win.glow * 185);
+          if (win.prop === 'teapot') {{
+            ellipse(-2, 6, 12, 9);
+            triangle(3, 5, 9, 1, 7, 7);
+            circle(-2, 1, 4);
+          }} else {{
+            quad(-5, 9, 5, 9, 3, 2, -3, 2);
+            circle(0, -2, 6);
+          }}
+
+          // 重绘浅米色剪纸十字窗棂，保持原画质感
+          fill(236, 215, 194, win.glow * 245);
+          rect(0, 0, 3.5, win.h - 2);
+          rect(0, 0, win.w - 2, 3.5);
+
+          pop();
+        }}
       }}
 
       function drawStepStonesGlow() {{
@@ -446,6 +598,10 @@ def render():
           cursor(HAND);
           return;
         }}
+        if (isPointOnChimney(mouseX, mouseY) || getHoveredWindow(mouseX, mouseY)) {{
+          cursor(HAND);
+          return;
+        }}
         if (sceneState !== "GARDEN_ACTIVE") {{
           cursor(HAND);
           return;
@@ -473,9 +629,20 @@ def render():
           return;
         }}
 
+        // 0.5 小屋生活感彩蛋：点击砖红烟囱冒烟圈 / 点击左右窗户开关暖黄灯光（任何阶段均可互动）
+        if (isPointOnChimney(mouseX, mouseY)) {{
+          triggerChimneySmoke();
+          return;
+        }}
+        let hitWin = getHoveredWindow(mouseX, mouseY);
+        if (hitWin) {{
+          hitWin.lit = !hitWin.lit;
+          playChimeNote(hitWin.lit ? 659.25 : 493.88, 0.45, 0.08);
+          return;
+        }}
+
         if (sceneState === "HOUSE_CLOSED") {{
           sceneState = "SPRITE_EMERGING";
-          // 开门唤醒三和弦
           playChimeNote(523.25, 0.6, 0.09, 0.0);
           playChimeNote(659.25, 0.6, 0.09, 0.12);
           playChimeNote(783.99, 0.8, 0.10, 0.24);
@@ -574,7 +741,6 @@ def render():
             }}
           }}
         }}
-        // 花朵或蘑菇盛开瞬间奏响一颗清亮八音盒泛音
         if (newlyBloomed) {{
           const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
           playChimeNote(random(pentatonic), 0.7, 0.09);
