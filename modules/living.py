@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击蘑菇屋的拱形木门唤醒花仙子；点击荷叶上的小青蛙可让它跳跃；点击水壶拾起后点击水池蓝色水面舀水，即可浇灌草地上的花朵与蘑菇。"
+        "点击蘑菇屋的拱形木门唤醒花仙子；点击荷叶上的小青蛙可让它连跳四下；点击门前彩色鹅卵石可奏出晨露音阶；拾起水壶并在水池蓝色水面舀水后，即可浇灌草地上的花朵与蘑菇。"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -92,9 +92,94 @@ def render():
       let ripples = [];
       let butterflies = [];
       let birds = [];
+      let stepStones = [];
       let gardenVitality = 0;
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
+
+      // ================== Web Audio API 零素材合成音效引擎 ==================
+      let audioCtx = null;
+      let soundEnabled = true;
+
+      function ensureAudio() {{
+        if (!soundEnabled) return null;
+        if (!audioCtx) {{
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) audioCtx = new AudioContext();
+        }}
+        if (audioCtx && audioCtx.state === "suspended") {{
+          audioCtx.resume();
+        }}
+        return audioCtx;
+      }}
+
+      function playChimeNote(freq, duration = 0.55, volume = 0.11, delay = 0) {{
+        let ctx = ensureAudio();
+        if (!ctx) return;
+        let now = ctx.currentTime + delay;
+
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(volume, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration + 0.02);
+      }}
+
+      function playWaterDropSound(isScoop = false) {{
+        let ctx = ensureAudio();
+        if (!ctx) return;
+        let now = ctx.currentTime;
+
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        osc.type = "sine";
+        if (isScoop) {{
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.exponentialRampToValueAtTime(680, now + 0.18);
+        }} else {{
+          let base = random(520, 760);
+          osc.frequency.setValueAtTime(base, now);
+          osc.frequency.exponentialRampToValueAtTime(base * 1.35, now + 0.09);
+        }}
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(isScoop ? 0.11 : 0.045, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + (isScoop ? 0.22 : 0.11));
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }}
+
+      function playFrogHopSound() {{
+        let ctx = ensureAudio();
+        if (!ctx) return;
+        let now = ctx.currentTime;
+
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(210, now);
+        osc.frequency.exponentialRampToValueAtTime(330, now + 0.09);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.09, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.14);
+      }}
 
       let groundBucket = {{
         x: 365,
@@ -113,6 +198,10 @@ def render():
         let dx = (px - POND_X) / 132;
         let dy = (py - POND_Y) / 68;
         return (dx * dx + dy * dy) <= 1.05;
+      }}
+
+      function isPointOnMuteButton(px, py) {{
+        return px >= width - 104 && px <= width - 16 && py >= 16 && py <= 46;
       }}
 
       function preload() {{
@@ -138,6 +227,21 @@ def render():
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
         frog = new OrigamiFrog();
+
+        // 门前 8 颗彩色鹅卵石音阶（C5 大调音阶 Do Re Mi Fa Sol La Si Do）
+        const stoneNotes = [
+          {{ x: 545, y: 392, freq: 523.25 }}, // Do
+          {{ x: 514, y: 405, freq: 587.33 }}, // Re
+          {{ x: 552, y: 418, freq: 659.25 }}, // Mi
+          {{ x: 506, y: 428, freq: 698.46 }}, // Fa
+          {{ x: 536, y: 438, freq: 783.99 }}, // Sol
+          {{ x: 472, y: 444, freq: 880.00 }}, // La
+          {{ x: 512, y: 458, freq: 987.77 }}, // Si
+          {{ x: 454, y: 465, freq: 1046.50 }} // Do'
+        ];
+        for (let s of stoneNotes) {{
+          stepStones.push({{ x: s.x, y: s.y, freq: s.freq, glow: 0 }});
+        }}
 
         const grassZones = [
           {{ x1: 55,  x2: 225, y1: 470, y2: 538 }},
@@ -208,6 +312,7 @@ def render():
 
         drawDoorPortal();
         drawPondHint();
+        drawStepStonesGlow();
 
         for (let g of grassBlades) {{
           g.update();
@@ -273,14 +378,47 @@ def render():
         }}
 
         if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % 7 === 0) {{
-          if (!isPointInPond(mouseX, mouseY) && !frog.isPointOnFrog(mouseX, mouseY)) {{
+          if (!isPointInPond(mouseX, mouseY) && !frog.isPointOnFrog(mouseX, mouseY) && !isPointOnMuteButton(mouseX, mouseY)) {{
             sprite.pourWater();
           }}
         }}
 
         sprite.update();
         sprite.display();
+        drawAudioToggleButton();
         updateCursorStyle();
+      }}
+
+      function drawStepStonesGlow() {{
+        for (let s of stepStones) {{
+          if (s.glow > 0.01) {{
+            s.glow = lerp(s.glow, 0, 0.08);
+            push();
+            noStroke();
+            fill(255, 248, 210, s.glow * 180);
+            ellipse(s.x, s.y, 26 + (1 - s.glow) * 14, 14 + (1 - s.glow) * 8);
+            pop();
+          }}
+        }}
+      }}
+
+      function drawAudioToggleButton() {{
+        push();
+        let bx = width - 104;
+        let by = 16;
+        let bw = 88;
+        let bh = 30;
+        setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+        noStroke();
+        fill(250, 245, 235, 225);
+        rect(bx, by, bw, bh, 15);
+        clearShadow();
+
+        fill('#6b6356');
+        textAlign(CENTER, CENTER);
+        textSize(12);
+        text(soundEnabled ? "🔊 音效已开" : "🔇 已静音", bx + bw / 2, by + bh / 2 + 1);
+        pop();
       }}
 
       function drawPondHint() {{
@@ -296,7 +434,18 @@ def render():
         }}
       }}
 
+      function getHoveredStone(px, py) {{
+        for (let s of stepStones) {{
+          if (dist(px, py, s.x, s.y) < 15) return s;
+        }}
+        return null;
+      }}
+
       function updateCursorStyle() {{
+        if (isPointOnMuteButton(mouseX, mouseY)) {{
+          cursor(HAND);
+          return;
+        }}
         if (sceneState !== "GARDEN_ACTIVE") {{
           cursor(HAND);
           return;
@@ -309,36 +458,57 @@ def render():
           cursor(HAND);
         }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
           cursor(HAND);
+        }} else if (getHoveredStone(mouseX, mouseY)) {{
+          cursor(HAND);
         }} else {{
           cursor(ARROW);
         }}
       }}
 
       function mousePressed() {{
+        // 0. 右上角静音开关
+        if (isPointOnMuteButton(mouseX, mouseY)) {{
+          soundEnabled = !soundEnabled;
+          if (soundEnabled) playChimeNote(659.25, 0.3, 0.08);
+          return;
+        }}
+
         if (sceneState === "HOUSE_CLOSED") {{
           sceneState = "SPRITE_EMERGING";
+          // 开门唤醒三和弦
+          playChimeNote(523.25, 0.6, 0.09, 0.0);
+          playChimeNote(659.25, 0.6, 0.09, 0.12);
+          playChimeNote(783.99, 0.8, 0.10, 0.24);
         }} else if (sceneState === "GARDEN_ACTIVE") {{
-          // 1. 优先判断：直接点击到小青蛙本体 -> 仅触发小青蛙跳跃
+          // 1. 优先判断：直接点击到小青蛙本体 -> 仅触发小青蛙连跳四下
           if (frog.isPointOnFrog(mouseX, mouseY)) {{
             frog.jumpToNextPad();
             return;
           }}
 
+          // 2. 点击门前彩色鹅卵石 -> 奏出晨露音阶
+          let hitStone = getHoveredStone(mouseX, mouseY);
+          if (hitStone) {{
+            hitStone.glow = 1.0;
+            playChimeNote(hitStone.freq, 0.55, 0.10);
+            return;
+          }}
+
           if (sprite.hasBucket) {{
-            // 2. 只要鼠标在水池范围内点击 -> 优先执行舀水，绝不误触放下水桶
+            // 3. 只要鼠标在水池范围内点击 -> 优先执行舀水
             if (isPointInPond(mouseX, mouseY)) {{
               sprite.scoopWater(mouseX, mouseY);
             }}
-            // 3. 在水池外精准点击水桶本体 -> 把水桶放在地上
+            // 4. 在水池外精准点击水桶本体 -> 把水桶放在地上
             else if (sprite.isPointOnBucket(mouseX, mouseY)) {{
               sprite.putBucketOnGround();
             }}
-            // 4. 已舀水后点击草地 -> 倾倒浇水
+            // 5. 已舀水后点击草地 -> 倾倒浇水
             else if (sprite.bucketHasWater) {{
               sprite.pourWater();
             }}
           }} else {{
-            // 5. 空手时点击地上的水桶 -> 拾起水桶
+            // 6. 空手时点击地上的水桶 -> 拾起水桶
             if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
               sprite.pickUpBucket();
             }}
@@ -384,19 +554,30 @@ def render():
 
       function triggerWaterImpact(wx, wy) {{
         ripples.push(new PaperRipple(wx, wy));
+        playWaterDropSound(false);
 
         for (let g of grassBlades) {{
           if (dist(g.x, g.y, wx, wy) < 105) {{
             g.targetGrowth = min(1, g.targetGrowth + 0.55);
           }}
         }}
+        let newlyBloomed = false;
         for (let p of plants) {{
           if (dist(p.x, p.y, wx, wy) < 115) {{
+            let prevBloom = p.targetBloom;
             p.targetBloom = min(1, p.targetBloom + 0.48);
+            if (prevBloom <= 0.65 && p.targetBloom > 0.65) {{
+              newlyBloomed = true;
+            }}
             if (p.kind === 'flower') {{
               hasWateredFlowers = true;
             }}
           }}
+        }}
+        // 花朵或蘑菇盛开瞬间奏响一颗清亮八音盒泛音
+        if (newlyBloomed) {{
+          const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+          playChimeNote(random(pentatonic), 0.7, 0.09);
         }}
       }}
 
@@ -433,10 +614,8 @@ def render():
         drawingContext.shadowOffsetY = 0;
       }}
 
-      // ================== 荷叶上的剪纸小青蛙类（支持点击连跳两下） ==================
       class OrigamiFrog {{
         constructor() {{
-          // 精确对齐背景图中的 5 片绿色荷叶中心（第 1 片为最左边荷叶）
           this.lilyPads = [
             {{ x: 114, y: 386 }},
             {{ x: 182, y: 368 }},
@@ -454,9 +633,9 @@ def render():
 
           this.isJumping = false;
           this.jumpT = 0;
-          this.jumpDuration = 22;     // 单次跳跃稍快一点，连跳更轻快
-          this.remainingJumps = 0;    // 剩余连跳次数
-          this.pauseTimer = 0;        // 第一跳落地后的短暂停顿蓄力帧数
+          this.jumpDuration = 22;
+          this.remainingJumps = 0;
+          this.pauseTimer = 0;
           this.facing = 1;
           this.squash = 1;
         }}
@@ -476,11 +655,11 @@ def render():
           this.isJumping = true;
           this.jumpT = 0;
           ripples.push(new PaperRipple(this.startX, this.startY + 4));
+          playFrogHopSound();
         }}
         jumpToNextPad() {{
-          // 如果正在连跳中，防连击打断
           if (this.isJumping || this.remainingJumps > 0) return;
-          this.remainingJumps = 3; // 除当前第一跳外，落地后再自动连跳 1 下（共两下）
+          this.remainingJumps = 3;
           this.startSingleHop();
         }}
         update() {{
@@ -506,14 +685,13 @@ def render():
               this.squash = 0.85;
               ripples.push(new PaperRipple(this.x, this.y + 4));
 
-              // 如果还有剩余连跳次数，设置 8 帧的落地微蹲蓄力后起跳第二下
               if (this.remainingJumps > 0) {{
                 this.pauseTimer = 8;
               }}
             }}
           }} else if (this.pauseTimer > 0) {{
             this.pauseTimer--;
-            this.squash = lerp(this.squash, 0.8, 0.3); // 蓄力微蹲形变
+            this.squash = lerp(this.squash, 0.8, 0.3);
             if (this.pauseTimer === 0 && this.remainingJumps > 0) {{
               this.remainingJumps--;
               this.startSingleHop();
@@ -602,6 +780,7 @@ def render():
           this.scoopTimer = 18;
           ripples.push(new PaperRipple(px, py));
           ripples.push(new PaperRipple(px + random(-14, 14), py + random(-8, 8)));
+          playWaterDropSound(true);
         }}
         putBucketOnGround() {{
           let pos = this.getBucketWorldPos();
@@ -625,6 +804,7 @@ def render():
           this.bucketScale = 0;
           this.pourTimer = 0;
           this.scoopTimer = 0;
+          playChimeNote(392.00, 0.25, 0.07);
         }}
         pickUpBucket() {{
           if (!groundBucket) return;
@@ -634,6 +814,7 @@ def render():
           this.hasBucket = true;
           this.bucketScale = 0.2;
           groundBucket = null;
+          playChimeNote(587.33, 0.28, 0.07);
         }}
         emergeTo(tx, ty) {{
           this.visible = true;
