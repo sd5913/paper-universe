@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击木门唤醒花仙子；点击大树树冠摇落折纸树叶，点击荷叶小青蛙连跳四下，点击门前鹅卵石奏响音阶；拾起水壶在荷花池舀水（还会绽放粉白睡莲），浇灌花朵与蘑菇盛开后，可直接点击盛开的花朵与蘑菇进行采摘！"
+        "点击木门唤醒花仙子；点击大树树冠摇落折纸树叶，点击荷叶小青蛙连跳四下，点击门前鹅卵石奏响音阶；拾起水壶在荷花池舀水并浇灌花朵与蘑菇，盛开后点击它们即可采摘（伴随花瓣与孢子飞散）！"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -99,8 +99,11 @@ def render():
       let waterLilies = [];
       let musicNotes = [];
 
-      // 采摘花朵与蘑菇系统
-      let harvestedItems = [];
+      // 采摘花朵与蘑菇精细化系统
+      let harvestedItems = [];      // 抛物线飞向花仙子的采摘战利品
+      let harvestParticles = [];    // 采摘瞬间的折纸花瓣 & 金色孢子粒子
+      let orbitWreathItems = [];    // 近期采摘后短暂环绕花仙子的迷你花环挂饰
+      let fairyBurstRing = 0;       // 每采满 5 份收获时的星尘光环
       let harvestedFlowerCount = 0;
       let harvestedMushroomCount = 0;
 
@@ -151,6 +154,11 @@ def render():
         freqs.forEach((f, idx) => {{
           playChimeNote(f, 0.38, 0.09, idx * 0.07);
         }});
+      }}
+
+      function playMilestoneFanfare() {{
+        const notes = [587.33, 739.99, 880.00, 1174.66];
+        notes.forEach((f, i) => playChimeNote(f, 0.55, 0.09, i * 0.08));
       }}
 
       function playBirdChirpSound(variant = 0) {{
@@ -451,6 +459,7 @@ def render():
         }}
 
         drawGroundBucket();
+        updateAndDrawHarvestParticles();
         updateAndDrawHarvestedItems();
 
         for (let b of butterflies) {{
@@ -484,7 +493,7 @@ def render():
         updateCursorStyle();
       }}
 
-      // ================== 采摘盛开的花朵与蘑菇 ==================
+      // ================== 采摘盛开的花朵与蘑菇（含花瓣/孢子粒子、泥土波纹与花环反馈） ==================
       function getClickedRipePlant(px, py) {{
         let closest = null;
         let minDist = 24;
@@ -501,19 +510,111 @@ def render():
         return closest;
       }}
 
+      function spawnHarvestBurst(x, y, kind, variant) {{
+        if (kind === 'flower') {{
+          // 摘花瞬间爆散 5 片对应花色的折纸小花瓣
+          const flowerPalettes = [
+            ['#ffafcc', '#ffc8dd'], // 粉花
+            ['#ffd166', '#ffe699'], // 黄花
+            ['#90dbf4', '#bde0fe']  // 蓝花
+          ];
+          let cols = flowerPalettes[variant % flowerPalettes.length];
+          for (let i = 0; i < 5; i++) {{
+            let ang = (TWO_PI / 5) * i + random(-0.3, 0.3);
+            let spd = random(1.2, 2.4);
+            harvestParticles.push({{
+              type: 'petal',
+              x: x,
+              y: y,
+              vx: cos(ang) * spd,
+              vy: sin(ang) * spd - 1.2,
+              gravity: 0.045,
+              rot: random(TWO_PI),
+              rotSpeed: random(-0.08, 0.08),
+              color: random(cols),
+              alpha: 255
+            }});
+          }}
+        }} else {{
+          // 采蘑菇瞬间菌褶喷出 7 颗金色孢子星尘
+          for (let i = 0; i < 7; i++) {{
+            let ang = random(-PI, 0);
+            let spd = random(0.8, 2.1);
+            harvestParticles.push({{
+              type: 'spore',
+              x: x + random(-8, 8),
+              y: y + 4,
+              vx: cos(ang) * spd,
+              vy: sin(ang) * spd - 0.5,
+              gravity: -0.015, // 孢子轻盈向上漂浮
+              size: random(4, 6.5),
+              color: random(['#ffd166', '#fff3b0', '#f4a261']),
+              alpha: 255
+            }});
+          }}
+        }}
+      }}
+
+      function updateAndDrawHarvestParticles() {{
+        for (let i = harvestParticles.length - 1; i >= 0; i--) {{
+          let pt = harvestParticles[i];
+          pt.x += pt.vx;
+          pt.y += pt.vy;
+          pt.vy += pt.gravity;
+          pt.vx *= 0.97;
+          pt.alpha -= 4.2;
+
+          if (pt.alpha <= 0) {{
+            harvestParticles.splice(i, 1);
+            continue;
+          }}
+
+          push();
+          translate(pt.x, pt.y);
+          noStroke();
+          let c = color(pt.color);
+          c.setAlpha(pt.alpha);
+          fill(c);
+
+          if (pt.type === 'petal') {{
+            pt.rot += pt.rotSpeed;
+            rotate(pt.rot);
+            // 折纸水滴形花瓣
+            triangle(0, -6, -4, 1, 0, 5);
+            c.setAlpha(pt.alpha * 0.82);
+            fill(c);
+            triangle(0, -6, 4, 1, 0, 5);
+          }} else {{
+            // 发光孢子微粒
+            circle(0, 0, pt.size);
+            fill(255, 255, 255, pt.alpha * 0.75);
+            circle(0, 0, pt.size * 0.45);
+          }}
+          pop();
+        }}
+      }}
+
       function harvestPlant(p) {{
         let startY = p.kind === 'flower' ? (p.y - p.stemHeight) : (p.y - 16);
         let imgList = p.kind === 'flower' ? flowerImgs : mushroomImgs;
         let img = imgList.length > 0 ? imgList[p.variant % imgList.length] : null;
 
+        // 1. 触发花瓣或孢子粒子爆散 + 脚下草叶微尘波纹
+        spawnHarvestBurst(p.x, startY, p.kind, p.variant);
+        ripples.push(new PaperRipple(p.x, p.y));
+
+        // 2. 抛物线弧线飞向花仙子
         harvestedItems.push({{
+          startX: p.x,
+          startY: startY,
           x: p.x,
           y: startY,
+          t: 0,
+          duration: 28,
           kind: p.kind,
           variant: p.variant,
           img: img,
-          scaleVal: 1.15,
-          alpha: 255
+          rot: 0
         }});
 
         if (p.kind === 'flower') {{
@@ -524,27 +625,48 @@ def render():
           playHarvestSound(true);
         }}
 
+        // 3. 每采满 5 份收获触发一次星尘花环庆贺
+        let totalHarvested = harvestedFlowerCount + harvestedMushroomCount;
+        if (totalHarvested > 0 && totalHarvested % 5 === 0) {{
+          fairyBurstRing = 1.0;
+          playMilestoneFanfare();
+        }}
+
+        // 4. 采摘后花朵/蘑菇回到嫩芽/菌丝环状态，并记录刚被采摘的留痕时间
         p.bloom = 0.08;
         p.targetBloom = 0.08;
+        p.harvestedFade = 1.0;
       }}
 
       function updateAndDrawHarvestedItems() {{
         for (let i = harvestedItems.length - 1; i >= 0; i--) {{
           let item = harvestedItems[i];
-          item.x = lerp(item.x, sprite.x, 0.14);
-          item.y = lerp(item.y, sprite.y - 8, 0.14);
-          item.scaleVal = lerp(item.scaleVal, 0.35, 0.12);
-          item.alpha -= 7;
+          item.t++;
+          let prog = constrain(item.t / item.duration, 0, 1);
+          // 抛物线飞向花仙子身边
+          let arcLift = sin(prog * PI) * 48;
+          item.x = lerp(item.startX, sprite.x, prog);
+          item.y = lerp(item.startY, sprite.y - 6, prog) - arcLift;
+          item.rot += 0.14;
 
-          if (item.alpha <= 10 || dist(item.x, item.y, sprite.x, sprite.y) < 16) {{
+          if (prog >= 1) {{
+            // 融入花仙子身边的迷你环绕花环（最多保留最近 4 个挂饰）
+            orbitWreathItems.push({{
+              kind: item.kind,
+              variant: item.variant,
+              img: item.img,
+              life: 320
+            }});
+            if (orbitWreathItems.length > 4) orbitWreathItems.shift();
             harvestedItems.splice(i, 1);
             continue;
           }}
 
+          let s = map(prog, 0, 1, 1.1, 0.48);
           push();
           translate(item.x, item.y);
-          scale(item.scaleVal);
-          tint(255, item.alpha);
+          rotate(item.rot);
+          scale(s);
           if (item.img) {{
             imageMode(CENTER);
             let targetH = 38;
@@ -555,7 +677,6 @@ def render():
             fill(item.kind === 'flower' ? '#f28482' : '#e06d53');
             circle(0, 0, 22);
           }}
-          noTint();
           pop();
         }}
       }}
@@ -718,7 +839,7 @@ def render():
         let hy = 16;
         let hh = 30;
 
-        // 1. 左上角花篮采摘计数徽章（采摘任意花朵或蘑菇后自动浮现）
+        // 1. 左上角花篮采摘计数徽章
         if (harvestedFlowerCount > 0 || harvestedMushroomCount > 0) {{
           push();
           let bw = 122;
@@ -1226,6 +1347,46 @@ def render():
             circle(t.x, t.y, map(t.alpha, 0, 175, 2, 7));
           }}
 
+          // 每采满 5 份收获时的星尘庆贺光环
+          if (fairyBurstRing > 0.01) {{
+            fairyBurstRing = lerp(fairyBurstRing, 0, 0.04);
+            noFill();
+            stroke(255, 232, 145, fairyBurstRing * 220);
+            strokeWeight(2.5);
+            circle(this.x, this.y, (1 - fairyBurstRing) * 140 + 30);
+            noStroke();
+          }}
+
+          // 近期采摘的花朵/蘑菇化作迷你花环在花仙子身旁轻盈环绕一会儿
+          for (let i = orbitWreathItems.length - 1; i >= 0; i--) {{
+            let w = orbitWreathItems[i];
+            w.life--;
+            if (w.life <= 0) {{
+              orbitWreathItems.splice(i, 1);
+              continue;
+            }}
+            let alpha = w.life < 40 ? map(w.life, 0, 40, 0, 235) : 235;
+            let ang = frameCount * 0.04 + (TWO_PI / max(1, orbitWreathItems.length)) * i;
+            let ox = this.x + cos(ang) * 46;
+            let oy = this.y + sin(ang * 1.2) * 20;
+
+            push();
+            translate(ox, oy);
+            scale(0.42);
+            tint(255, alpha);
+            if (w.img) {{
+              imageMode(CENTER);
+              let targetH = 38;
+              let targetW = targetH * (w.img.width / w.img.height);
+              image(w.img, 0, 0, targetW, targetH);
+            }} else {{
+              fill(w.kind === 'flower' ? '#ffafcc' : '#e06d53', alpha);
+              circle(0, 0, 18);
+            }}
+            noTint();
+            pop();
+          }}
+
           push();
           translate(this.x, this.y);
           rotate(constrain(this.vx * 0.03, -0.22, 0.22));
@@ -1353,9 +1514,13 @@ def render():
           this.bloom = 0.05;
           this.targetBloom = 0.05;
           this.stemHeight = kind === 'flower' ? random(14, 38) : 0;
+          this.harvestedFade = 0; // 刚被采摘后的菌丝/嫩叶留痕渐隐
         }}
         update() {{
           this.bloom = lerp(this.bloom, this.targetBloom, 0.065);
+          if (this.harvestedFade > 0) {{
+            this.harvestedFade = max(0, this.harvestedFade - 0.008);
+          }}
         }}
         display() {{
           push();
@@ -1367,6 +1532,14 @@ def render():
               noStroke();
               fill('#efe8d8');
               ellipse(0, 0, 12, 6);
+              // 刚采走蘑菇后留下浅米色小菌丝环
+              if (this.harvestedFade > 0.02) {{
+                noFill();
+                stroke(245, 240, 225, this.harvestedFade * 190);
+                strokeWeight(1.5);
+                ellipse(0, 0, 22, 9);
+                noStroke();
+              }}
             }} else {{
               let s = map(this.bloom, 0.2, 1, 0.15, 1.0);
               let sway = sin(frameCount * 0.03 + this.x) * 0.04 * this.bloom;
