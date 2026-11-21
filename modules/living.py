@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击木门唤醒花仙子；拾起水壶在荷花池舀水后浇灌花朵与蘑菇，盛开后可收集彩色晨露召唤折纸彩虹，也可以直接点击盛开的花朵与蘑菇进行采摘！"
+        "点击木门唤醒花仙子；点击大树树冠摇落折纸树叶，点击荷叶小青蛙连跳四下，点击门前鹅卵石奏响音阶；拾起水壶在荷花池舀水（还会绽放粉白睡莲），浇灌花朵与蘑菇盛开后，可直接点击盛开的花朵与蘑菇进行采摘！"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -98,10 +98,6 @@ def render():
       let fallingLeaves = [];
       let waterLilies = [];
       let musicNotes = [];
-      let dewDrops = [];
-      let collectedDewColors = [];
-      const MAX_DEW_COUNT = 5;
-      let rainbowProgress = 0;
 
       // 采摘花朵与蘑菇系统
       let harvestedItems = [];
@@ -397,7 +393,6 @@ def render():
           background('#f7f2e7');
         }}
 
-        drawOrigamiRainbow();
         drawDoorPortal();
         drawPondHint();
         drawStepStonesGlow();
@@ -456,7 +451,6 @@ def render():
         }}
 
         drawGroundBucket();
-        updateAndDrawDewDrops();
         updateAndDrawHarvestedItems();
 
         for (let b of butterflies) {{
@@ -532,7 +526,6 @@ def render():
 
         p.bloom = 0.08;
         p.targetBloom = 0.08;
-        p.hasSpawnedDew = false;
       }}
 
       function updateAndDrawHarvestedItems() {{
@@ -565,30 +558,6 @@ def render():
           noTint();
           pop();
         }}
-      }}
-
-      // ================== 折纸彩虹（集齐 5 颗晨露后升起） ==================
-      function drawOrigamiRainbow() {{
-        if (collectedDewColors.length < MAX_DEW_COUNT) return;
-        rainbowProgress = lerp(rainbowProgress, 1, 0.015);
-
-        push();
-        translate(445, 295);
-        noFill();
-        strokeWeight(11);
-        const arcColors = [
-          color(255, 173, 173, rainbowProgress * 155),
-          color(255, 214, 165, rainbowProgress * 155),
-          color(253, 255, 182, rainbowProgress * 155),
-          color(202, 255, 191, rainbowProgress * 155),
-          color(160, 196, 255, rainbowProgress * 155)
-        ];
-        for (let i = 0; i < arcColors.length; i++) {{
-          stroke(arcColors[i]);
-          let r = 460 - i * 20;
-          arc(0, 0, r, r * 0.78, PI + 0.12, TWO_PI - 0.12);
-        }}
-        pop();
       }}
 
       // ================== 荷花池粉白折纸睡莲 ==================
@@ -732,74 +701,6 @@ def render():
         }}
       }}
 
-      // ================== 盛开花朵凝结“七彩晨露”与收集 ==================
-      function maybeSpawnDewDrop(plant) {{
-        let totalGenerated = collectedDewColors.length + dewDrops.length;
-        if (totalGenerated >= MAX_DEW_COUNT) return;
-        if (plant.hasSpawnedDew) return;
-        plant.hasSpawnedDew = true;
-
-        const dewPalette = ['#ff8fa3', '#ffd166', '#72efdd', '#cdb4db', '#90dbf4'];
-        let col = dewPalette[totalGenerated % dewPalette.length];
-        dewDrops.push({{
-          x: plant.x,
-          y: plant.y - plant.stemHeight - 16,
-          color: col,
-          pulseSeed: random(TWO_PI),
-          collected: false
-        }});
-      }}
-
-      function collectDewDrop(d) {{
-        if (d.collected) return;
-        d.collected = true;
-        collectedDewColors.push(d.color);
-
-        const scaleFreqs = [587.33, 659.25, 783.99, 880.00, 1046.50];
-        let idx = min(collectedDewColors.length - 1, scaleFreqs.length - 1);
-        playChimeNote(scaleFreqs[idx], 0.65, 0.11);
-
-        if (collectedDewColors.length >= MAX_DEW_COUNT) {{
-          playChimeNote(523.25, 0.8, 0.10, 0.1);
-          playChimeNote(659.25, 0.8, 0.10, 0.22);
-          playChimeNote(783.99, 0.8, 0.10, 0.34);
-          playChimeNote(1046.50, 1.2, 0.12, 0.46);
-        }}
-      }}
-
-      function updateAndDrawDewDrops() {{
-        for (let i = dewDrops.length - 1; i >= 0; i--) {{
-          let d = dewDrops[i];
-          if (d.collected) {{
-            d.x = lerp(d.x, sprite.x, 0.16);
-            d.y = lerp(d.y, sprite.y, 0.16);
-            if (dist(d.x, d.y, sprite.x, sprite.y) < 14) {{
-              dewDrops.splice(i, 1);
-              continue;
-            }}
-          }} else {{
-            if (sprite.visible && dist(sprite.x, sprite.y, d.x, d.y) < 34) {{
-              collectDewDrop(d);
-            }}
-          }}
-
-          let floatY = sin(frameCount * 0.08 + d.pulseSeed) * 3.5;
-          push();
-          translate(d.x, d.y + floatY);
-          noStroke();
-          let glowCol = color(d.color);
-          glowCol.setAlpha(95);
-          fill(glowCol);
-          circle(0, 0, 20 + sin(frameCount * 0.12 + d.pulseSeed) * 4);
-
-          fill(d.color);
-          triangle(0, -8, -5.5, 1, 0, 6);
-          fill('#ffffff');
-          triangle(0, -8, 5.5, 1, 0, 6);
-          pop();
-        }}
-      }}
-
       function drawStepStonesGlow() {{
         for (let s of stepStones) {{
           if (s.glow > 0.01) {{
@@ -814,60 +715,27 @@ def render():
       }}
 
       function drawTopHUD() {{
-        let curX = 18;
         let hy = 16;
         let hh = 30;
 
-        // 1. 左上角“晨露收集”徽章
-        if (hasWateredFlowers || collectedDewColors.length > 0) {{
-          push();
-          let hw = 148;
-          setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
-          noStroke();
-          fill(250, 245, 235, 225);
-          rect(curX, hy, hw, hh, 15);
-          clearShadow();
-
-          fill('#6b6356');
-          textAlign(LEFT, CENTER);
-          textSize(11.5);
-          text("晨露", curX + 12, hy + hh / 2 + 0.5);
-
-          for (let i = 0; i < MAX_DEW_COUNT; i++) {{
-            let cx = curX + 48 + i * 19;
-            let cy = hy + hh / 2;
-            if (i < collectedDewColors.length) {{
-              fill(collectedDewColors[i]);
-              circle(cx, cy, 11);
-              fill(255, 255, 255, 170);
-              circle(cx - 2, cy - 2, 3.5);
-            }} else {{
-              fill(215, 208, 195, 150);
-              circle(cx, cy, 9);
-            }}
-          }}
-          pop();
-          curX += hw + 10;
-        }}
-
-        // 2. 花篮采摘计数徽章
+        // 1. 左上角花篮采摘计数徽章（采摘任意花朵或蘑菇后自动浮现）
         if (harvestedFlowerCount > 0 || harvestedMushroomCount > 0) {{
           push();
           let bw = 122;
           setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
           noStroke();
           fill(250, 245, 235, 225);
-          rect(curX, hy, bw, hh, 15);
+          rect(18, hy, bw, hh, 15);
           clearShadow();
 
           fill('#6b6356');
           textAlign(CENTER, CENTER);
           textSize(11.5);
-          text(`🌸 ${{harvestedFlowerCount}}   🍄 ${{harvestedMushroomCount}}`, curX + bw / 2, hy + hh / 2 + 0.5);
+          text(`🌸 ${{harvestedFlowerCount}}   🍄 ${{harvestedMushroomCount}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
           pop();
         }}
 
-        // 3. 右上角静音开关
+        // 2. 右上角静音开关
         push();
         let bx = width - 104;
         let by = 16;
@@ -906,13 +774,6 @@ def render():
         return null;
       }}
 
-      function getHoveredDew(px, py) {{
-        for (let d of dewDrops) {{
-          if (!d.collected && dist(px, py, d.x, d.y) < 18) return d;
-        }}
-        return null;
-      }}
-
       function updateCursorStyle() {{
         if (isPointOnMuteButton(mouseX, mouseY)) {{
           cursor(HAND);
@@ -925,7 +786,6 @@ def render():
         if (frog.isPointOnFrog(mouseX, mouseY) ||
             getClickedBird(mouseX, mouseY) ||
             getClickedTreeCrown(mouseX, mouseY) ||
-            getHoveredDew(mouseX, mouseY) ||
             getClickedRipePlant(mouseX, mouseY)) {{
           cursor(HAND);
         }} else if (sprite.hasBucket && sprite.isPointOnBucket(mouseX, mouseY)) {{
@@ -968,12 +828,6 @@ def render():
           let hitTree = getClickedTreeCrown(mouseX, mouseY);
           if (hitTree) {{
             spawnTreeLeaves(mouseX, mouseY);
-            return;
-          }}
-
-          let hitDew = getHoveredDew(mouseX, mouseY);
-          if (hitDew) {{
-            collectDewDrop(hitDew);
             return;
           }}
 
@@ -1056,23 +910,22 @@ def render():
             g.targetGrowth = min(1, g.targetGrowth + 0.55);
           }}
         }}
-        let newlyBloomedPlant = null;
+        let newlyBloomed = false;
         for (let p of plants) {{
           if (dist(p.x, p.y, wx, wy) < 115) {{
             let prevBloom = p.targetBloom;
             p.targetBloom = min(1, p.targetBloom + 0.48);
-            if (prevBloom <= 0.65 && p.targetBloom > 0.65 && p.kind === 'flower') {{
-              newlyBloomedPlant = p;
+            if (prevBloom <= 0.65 && p.targetBloom > 0.65) {{
+              newlyBloomed = true;
             }}
             if (p.kind === 'flower') {{
               hasWateredFlowers = true;
             }}
           }}
         }}
-        if (newlyBloomedPlant) {{
+        if (newlyBloomed) {{
           const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
           playChimeNote(random(pentatonic), 0.7, 0.09);
-          maybeSpawnDewDrop(newlyBloomedPlant);
         }}
       }}
 
@@ -1373,16 +1226,6 @@ def render():
             circle(t.x, t.y, map(t.alpha, 0, 175, 2, 7));
           }}
 
-          for (let i = 0; i < collectedDewColors.length; i++) {{
-            let ang = frameCount * 0.045 + (TWO_PI / collectedDewColors.length) * i;
-            let ox = this.x + cos(ang) * 44;
-            let oy = this.y + sin(ang * 1.3) * 22;
-            fill(collectedDewColors[i]);
-            circle(ox, oy, 7.5);
-            fill(255, 255, 255, 200);
-            circle(ox - 1.5, oy - 1.5, 2.5);
-          }}
-
           push();
           translate(this.x, this.y);
           rotate(constrain(this.vx * 0.03, -0.22, 0.22));
@@ -1510,7 +1353,6 @@ def render():
           this.bloom = 0.05;
           this.targetBloom = 0.05;
           this.stemHeight = kind === 'flower' ? random(14, 38) : 0;
-          this.hasSpawnedDew = false;
         }}
         update() {{
           this.bloom = lerp(this.bloom, this.targetBloom, 0.065);
