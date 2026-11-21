@@ -26,7 +26,7 @@ def render():
     """Display the Living World module."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击蘑菇屋的拱形木门唤醒花仙子；点击烟囱可冒出剪纸烟圈，点击窗户可点亮暖黄灯光；点击荷叶小青蛙连跳四下，点击门前鹅卵石奏响音阶；拾起水壶舀水后即可浇灌花园。"
+        "点击木门唤醒花仙子；点击大树树冠可摇落折纸树叶，点击荷叶小青蛙连跳四下，点击门前鹅卵石奏响音阶；拾起水壶在荷花池舀水（还会绽放粉白睡莲），浇灌花朵凝结 5 颗彩色晨露并收集它们，即可召唤折纸彩虹与水晶蝶王！"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -93,10 +93,17 @@ def render():
       let butterflies = [];
       let birds = [];
       let stepStones = [];
-      let smokePuffs = [];
-      let houseWindows = [];
-      let chimneySmokeQueue = 0;
-      let chimneySmokeTimer = 0;
+
+      // 新增自然生态交互系统状态
+      let fallingLeaves = [];
+      let waterLilies = [];
+      let musicNotes = [];
+      let dewDrops = [];
+      let collectedDewColors = [];
+      const MAX_DEW_COUNT = 5;
+      let rainbowProgress = 0;
+      let crystalButterfly = null;
+
       let gardenVitality = 0;
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
@@ -137,25 +144,47 @@ def render():
         osc.stop(now + duration + 0.02);
       }}
 
-      function playSmokePuffSound() {{
+      function playBirdChirpSound(variant = 0) {{
+        let ctx = ensureAudio();
+        if (!ctx) return;
+        let notes = variant === 0 ? [1046.5, 1318.5, 1567.98] : [1174.66, 1396.91, 1760.0];
+        notes.forEach((f, idx) => {{
+          let now = ctx.currentTime + idx * 0.09;
+          let osc = ctx.createOscillator();
+          let gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(f * 0.92, now);
+          osc.frequency.exponentialRampToValueAtTime(f * 1.08, now + 0.07);
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.075, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        }});
+      }}
+
+      function playLeafRustleSound() {{
         let ctx = ensureAudio();
         if (!ctx) return;
         let now = ctx.currentTime;
-
         let osc = ctx.createOscillator();
         let gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(240, now);
-        osc.frequency.exponentialRampToValueAtTime(165, now + 0.28);
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(290, now + 0.18);
 
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.06, now + 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+        gain.gain.exponentialRampToValueAtTime(0.055, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.20);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.32);
+        osc.stop(now + 0.22);
       }}
 
       function playWaterDropSound(isScoop = false) {{
@@ -219,19 +248,26 @@ def render():
       const POND_X = 195;
       const POND_Y = 382;
 
-      // 蘑菇屋砖红烟囱中心与烟囱口坐标
-      const CHIMNEY_X = 622;
-      const CHIMNEY_Y = 216;
-      const CHIMNEY_TOP_Y = 178;
+      // 三棵拼贴大树树冠区域（点击可摇落折纸树叶）
+      const TREE_CROWNS = [
+        {{ x: 108, y: 145, rx: 76, ry: 82 }}, // 左树
+        {{ x: 375, y: 158, rx: 68, ry: 74 }}, // 中树
+        {{ x: 752, y: 142, rx: 74, ry: 80 }}  // 右树
+      ];
+
+      function getClickedTreeCrown(px, py) {{
+        for (let t of TREE_CROWNS) {{
+          let dx = (px - t.x) / t.rx;
+          let dy = (py - t.y) / t.ry;
+          if (dx * dx + dy * dy <= 1.0) return t;
+        }}
+        return null;
+      }}
 
       function isPointInPond(px, py) {{
         let dx = (px - POND_X) / 132;
         let dy = (py - POND_Y) / 68;
         return (dx * dx + dy * dy) <= 1.05;
-      }}
-
-      function isPointOnChimney(px, py) {{
-        return abs(px - CHIMNEY_X) <= 22 && py >= 168 && py <= 245;
       }}
 
       function isPointOnMuteButton(px, py) {{
@@ -262,10 +298,11 @@ def render():
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
         frog = new OrigamiFrog();
 
-        // 对齐蘑菇屋左右两扇蓝色窗户（点击可点亮暖黄烛光）
-        houseWindows = [
-          {{ x: 464, y: 316, w: 38, h: 36, lit: false, glow: 0, prop: 'teapot' }},
-          {{ x: 638, y: 316, w: 38, h: 36, lit: false, glow: 0, prop: 'plant' }}
+        // 荷花池里可绽放的 3 朵折纸睡莲预设位置（紧邻荷叶边缘）
+        waterLilies = [
+          {{ x: 136, y: 398, bloom: 0, targetBloom: 0, color: '#f7cad0' }},
+          {{ x: 204, y: 374, bloom: 0, targetBloom: 0, color: '#fff0f3' }},
+          {{ x: 256, y: 406, bloom: 0, targetBloom: 0, color: '#ffccd5' }}
         ];
 
         // 门前 8 颗彩色鹅卵石音阶
@@ -350,15 +387,15 @@ def render():
           background('#f7f2e7');
         }}
 
-        // 绘制烟囱冒出的剪纸小烟圈（位于屋顶之后/上方自然飘散）
-        updateAndDrawSmoke();
-
-        // 绘制蘑菇屋左右暖黄窗户灯光
-        drawHouseWindows();
+        // 收集满 5 颗彩色晨露后，远山天空缓缓升起折纸彩虹
+        drawOrigamiRainbow();
 
         drawDoorPortal();
         drawPondHint();
         drawStepStonesGlow();
+
+        // 绘制池塘里的折纸睡莲
+        drawWaterLilies();
 
         for (let g of grassBlades) {{
           g.update();
@@ -414,20 +451,34 @@ def render():
 
         drawGroundBucket();
 
+        // 更新并绘制盛开花朵上方凝结的“七彩晨露”
+        updateAndDrawDewDrops();
+
         for (let b of butterflies) {{
           b.update();
           b.display();
         }}
+
+        // 集齐 5 颗晨露后召唤的折纸水晶蝶王
+        if (crystalButterfly) {{
+          crystalButterfly.update();
+          crystalButterfly.display();
+        }}
+
         for (let bird of birds) {{
           bird.update();
           bird.display();
         }}
 
+        // 飘落的折纸树叶与小鸟音符
+        updateAndDrawFallingLeaves();
+        updateAndDrawMusicNotes();
+
         if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % 7 === 0) {{
           if (!isPointInPond(mouseX, mouseY) &&
               !frog.isPointOnFrog(mouseX, mouseY) &&
-              !isPointOnChimney(mouseX, mouseY) &&
-              !getHoveredWindow(mouseX, mouseY) &&
+              !getClickedBird(mouseX, mouseY) &&
+              !getClickedTreeCrown(mouseX, mouseY) &&
               !isPointOnMuteButton(mouseX, mouseY)) {{
             sprite.pourWater();
           }}
@@ -435,108 +486,252 @@ def render():
 
         sprite.update();
         sprite.display();
-        drawAudioToggleButton();
+
+        // 顶部状态栏（右侧静音按钮 + 晨露收集进度徽章）
+        drawTopHUD();
         updateCursorStyle();
       }}
 
-      // ================== 烟囱剪纸小烟圈生成与绘制 ==================
-      function triggerChimneySmoke() {{
-        chimneySmokeQueue = 4; // 连续冒出 4 朵剪纸小烟圈
-        chimneySmokeTimer = 0;
-        playSmokePuffSound();
+      // ================== 折纸彩虹（集齐 5 颗晨露后升起） ==================
+      function drawOrigamiRainbow() {{
+        if (collectedDewColors.length < MAX_DEW_COUNT) return;
+        rainbowProgress = lerp(rainbowProgress, 1, 0.015);
+
+        push();
+        translate(445, 295);
+        noFill();
+        strokeWeight(11);
+        const arcColors = [
+          color(255, 173, 173, rainbowProgress * 155),
+          color(255, 214, 165, rainbowProgress * 155),
+          color(253, 255, 182, rainbowProgress * 155),
+          color(202, 255, 191, rainbowProgress * 155),
+          color(160, 196, 255, rainbowProgress * 155)
+        ];
+        for (let i = 0; i < arcColors.length; i++) {{
+          stroke(arcColors[i]);
+          let r = 460 - i * 20;
+          arc(0, 0, r, r * 0.78, PI + 0.12, TWO_PI - 0.12);
+        }}
+        pop();
       }}
 
-      function updateAndDrawSmoke() {{
-        if (chimneySmokeQueue > 0) {{
-          if (chimneySmokeTimer <= 0) {{
-            smokePuffs.push({{
-              x: CHIMNEY_X + random(-3, 3),
-              y: CHIMNEY_TOP_Y,
-              vx: random(0.25, 0.55),
-              vy: random(-0.95, -0.65),
-              size: random(14, 18),
-              maxSize: random(34, 44),
-              alpha: 235,
-              phase: random(TWO_PI)
-            }});
-            chimneySmokeQueue--;
-            chimneySmokeTimer = 16; // 每隔 16 帧冒出一朵
-          }} else {{
-            chimneySmokeTimer--;
+      // ================== 荷花池粉白折纸睡莲 ==================
+      function bloomNextWaterLily() {{
+        for (let lily of waterLilies) {{
+          if (lily.targetBloom < 1) {{
+            lily.targetBloom = 1;
+            break;
           }}
         }}
+      }}
 
-        for (let i = smokePuffs.length - 1; i >= 0; i--) {{
-          let s = smokePuffs[i];
-          s.x += s.vx + sin(frameCount * 0.04 + s.phase) * 0.25;
-          s.y += s.vy;
-          s.size = lerp(s.size, s.maxSize, 0.03);
-          s.alpha -= 1.45;
-
-          if (s.alpha <= 0) {{
-            smokePuffs.splice(i, 1);
-            continue;
-          }}
+      function drawWaterLilies() {{
+        for (let lily of waterLilies) {{
+          lily.bloom = lerp(lily.bloom, lily.targetBloom, 0.06);
+          if (lily.bloom <= 0.02) continue;
 
           push();
-          translate(s.x, s.y);
-          setPaperShadow(6, 1, 3, `rgba(70, 80, 95, ${{ (s.alpha / 255) * 0.16 }})`);
+          translate(lily.x, lily.y);
+          scale(lily.bloom);
+          rotate(sin(frameCount * 0.03 + lily.x) * 0.06);
+          setPaperShadow(5, 1, 2, 'rgba(40, 70, 90, 0.18)');
           noStroke();
-          fill(248, 244, 234, s.alpha);
-          // 剪纸蓬松三圆小烟圈造型
-          circle(-s.size * 0.25, 0, s.size * 0.72);
-          circle(s.size * 0.22, -s.size * 0.08, s.size * 0.68);
-          circle(0, -s.size * 0.22, s.size * 0.78);
+
+          // 外层 6 片折纸花瓣
+          for (let i = 0; i < 6; i++) {{
+            push();
+            rotate((TWO_PI / 6) * i);
+            fill(lily.color);
+            triangle(0, 0, -5, -13, 5, -13);
+            pop();
+          }}
+          // 内层 6 片浅白花瓣
+          for (let i = 0; i < 6; i++) {{
+            push();
+            rotate((TWO_PI / 6) * i + PI / 6);
+            fill('#ffffff');
+            triangle(0, 0, -3.5, -9, 3.5, -9);
+            pop();
+          }}
+          // 鹅黄花蕊
+          fill('#ffd166');
+          circle(0, 0, 5.5);
+
           clearShadow();
           pop();
         }}
       }}
 
-      // ================== 小屋左右窗户暖黄灯光绘制 ==================
-      function getHoveredWindow(px, py) {{
-        for (let win of houseWindows) {{
-          if (abs(px - win.x) <= win.w / 2 + 4 && abs(py - win.y) <= win.h / 2 + 4) {{
-            return win;
+      // ================== 摇晃大树飘落折纸树叶 ==================
+      function spawnTreeLeaves(cx, cy) {{
+        playLeafRustleSound();
+        const leafCols = ['#8ac926', '#b5e48c', '#ffd166', '#99d98c'];
+        for (let i = 0; i < 3; i++) {{
+          fallingLeaves.push({{
+            x: cx + random(-36, 36),
+            y: cy + random(-15, 25),
+            vy: random(0.65, 1.15),
+            swaySeed: random(TWO_PI),
+            rot: random(TWO_PI),
+            rotSpeed: random(-0.04, 0.04),
+            color: random(leafCols),
+            alpha: 245
+          }});
+        }}
+      }}
+
+      function updateAndDrawFallingLeaves() {{
+        for (let i = fallingLeaves.length - 1; i >= 0; i--) {{
+          let lf = fallingLeaves[i];
+          lf.y += lf.vy;
+          lf.x += sin(frameCount * 0.045 + lf.swaySeed) * 0.85;
+          lf.rot += lf.rotSpeed;
+
+          if (lf.y > 460) {{
+            lf.alpha -= 4;
           }}
+          if (lf.alpha <= 0) {{
+            fallingLeaves.splice(i, 1);
+            continue;
+          }}
+
+          push();
+          translate(lf.x, lf.y);
+          rotate(lf.rot);
+          setPaperShadow(4, 1, 2, 'rgba(40, 50, 30, 0.16)');
+          noStroke();
+          let c = color(lf.color);
+          c.setAlpha(lf.alpha);
+          fill(c);
+          // 菱形折纸树叶（带中折线明暗面）
+          triangle(0, -9, -5, 0, 0, 9);
+          c.setAlpha(lf.alpha * 0.82);
+          fill(c);
+          triangle(0, -9, 5, 0, 0, 9);
+          clearShadow();
+          pop();
+        }}
+      }}
+
+      // ================== 小鸟对唱与飘出剪纸音符 ==================
+      function getClickedBird(px, py) {{
+        for (let b of birds) {{
+          if (dist(px, py, b.x, b.y - 14) < 26) return b;
         }}
         return null;
       }}
 
-      function drawHouseWindows() {{
-        for (let win of houseWindows) {{
-          win.glow = lerp(win.glow, win.lit ? 1 : 0, 0.1);
-          if (win.glow <= 0.01) continue;
+      function spawnBirdMusicNotes(bx, by) {{
+        const noteCols = ['#ff9f1c', '#ff758f', '#72efdd'];
+        for (let i = 0; i < 3; i++) {{
+          musicNotes.push({{
+            x: bx + random(-14, 14),
+            y: by - 26 - i * 8,
+            vx: random(-0.3, 0.3),
+            vy: random(-0.75, -0.55),
+            alpha: 245,
+            color: noteCols[i % noteCols.length],
+            phase: random(TWO_PI)
+          }});
+        }}
+      }}
 
-          push();
-          translate(win.x, win.y);
-          let flicker = 1 + sin(frameCount * 0.14 + win.x) * 0.04;
-
-          // 窗外溢出的柔和暖黄光晕
-          noStroke();
-          fill(255, 224, 130, win.glow * 75 * flicker);
-          ellipse(0, 0, (win.w + 26) * flicker, (win.h + 24) * flicker);
-
-          // 窗玻璃暖琥珀色填充
-          rectMode(CENTER);
-          fill(255, 218, 118, win.glow * 235);
-          rect(0, 0, win.w - 4, win.h - 4, 2);
-
-          // 窗内剪纸小剪影（左窗小茶壶、右窗小花盆）
-          fill(218, 152, 72, win.glow * 185);
-          if (win.prop === 'teapot') {{
-            ellipse(-2, 6, 12, 9);
-            triangle(3, 5, 9, 1, 7, 7);
-            circle(-2, 1, 4);
-          }} else {{
-            quad(-5, 9, 5, 9, 3, 2, -3, 2);
-            circle(0, -2, 6);
+      function updateAndDrawMusicNotes() {{
+        for (let i = musicNotes.length - 1; i >= 0; i--) {{
+          let n = musicNotes[i];
+          n.x += n.vx + sin(frameCount * 0.08 + n.phase) * 0.25;
+          n.y += n.vy;
+          n.alpha -= 2.8;
+          if (n.alpha <= 0) {{
+            musicNotes.splice(i, 1);
+            continue;
           }}
 
-          // 重绘浅米色剪纸十字窗棂，保持原画质感
-          fill(236, 215, 194, win.glow * 245);
-          rect(0, 0, 3.5, win.h - 2);
-          rect(0, 0, win.w - 2, 3.5);
+          push();
+          translate(n.x, n.y);
+          noStroke();
+          let c = color(n.color);
+          c.setAlpha(n.alpha);
+          fill(c);
+          ellipse(-2, 3, 6.5, 5);
+          rect(0.5, -7, 2, 10);
+          triangle(2.5, -7, 8, -4, 2.5, -2);
+          pop();
+        }}
+      }}
 
+      // ================== 盛开花朵凝结“七彩晨露”与收集 ==================
+      function maybeSpawnDewDrop(plant) {{
+        let totalGenerated = collectedDewColors.length + dewDrops.length;
+        if (totalGenerated >= MAX_DEW_COUNT) return;
+        // 避免同一株花重复生成晨露
+        if (plant.hasSpawnedDew) return;
+        plant.hasSpawnedDew = true;
+
+        const dewPalette = ['#ff8fa3', '#ffd166', '#72efdd', '#cdb4db', '#90dbf4'];
+        let col = dewPalette[totalGenerated % dewPalette.length];
+        dewDrops.push({{
+          x: plant.x,
+          y: plant.y - plant.stemHeight - 16,
+          color: col,
+          pulseSeed: random(TWO_PI),
+          collected: false
+        }});
+      }}
+
+      function collectDewDrop(d) {{
+        if (d.collected) return;
+        d.collected = true;
+        collectedDewColors.push(d.color);
+
+        // 奏响逐步升高的晨露收集音阶
+        const scaleFreqs = [587.33, 659.25, 783.99, 880.00, 1046.50];
+        let idx = min(collectedDewColors.length - 1, scaleFreqs.length - 1);
+        playChimeNote(scaleFreqs[idx], 0.65, 0.11);
+
+        // 如果集齐全部 5 颗晨露，触发森林奇遇高潮：折纸彩虹 + 水晶蝶王！
+        if (collectedDewColors.length >= MAX_DEW_COUNT && !crystalButterfly) {{
+          crystalButterfly = new OrigamiCrystalButterfly();
+          playChimeNote(523.25, 0.8, 0.10, 0.1);
+          playChimeNote(659.25, 0.8, 0.10, 0.22);
+          playChimeNote(783.99, 0.8, 0.10, 0.34);
+          playChimeNote(1046.50, 1.2, 0.12, 0.46);
+        }}
+      }}
+
+      function updateAndDrawDewDrops() {{
+        for (let i = dewDrops.length - 1; i >= 0; i--) {{
+          let d = dewDrops[i];
+          if (d.collected) {{
+            // 化作流光飞向花仙子身边
+            d.x = lerp(d.x, sprite.x, 0.16);
+            d.y = lerp(d.y, sprite.y, 0.16);
+            if (dist(d.x, d.y, sprite.x, sprite.y) < 14) {{
+              dewDrops.splice(i, 1);
+              continue;
+            }}
+          }} else {{
+            // 花仙子飞过去靠近晨露时自动采露
+            if (sprite.visible && dist(sprite.x, sprite.y, d.x, d.y) < 34) {{
+              collectDewDrop(d);
+            }}
+          }}
+
+          let floatY = sin(frameCount * 0.08 + d.pulseSeed) * 3.5;
+          push();
+          translate(d.x, d.y + floatY);
+          noStroke();
+          let glowCol = color(d.color);
+          glowCol.setAlpha(95);
+          fill(glowCol);
+          circle(0, 0, 20 + sin(frameCount * 0.12 + d.pulseSeed) * 4);
+
+          fill(d.color);
+          // 折纸水滴造型
+          triangle(0, -8, -5.5, 1, 0, 6);
+          fill('#ffffff');
+          triangle(0, -8, 5.5, 1, 0, 6);
           pop();
         }}
       }}
@@ -554,7 +749,42 @@ def render():
         }}
       }}
 
-      function drawAudioToggleButton() {{
+      function drawTopHUD() {{
+        // 1. 左上角“晨露收集”轻量纸片徽章（仅当已开始浇花或收集到晨露时优雅浮现）
+        if (hasWateredFlowers || collectedDewColors.length > 0) {{
+          push();
+          let hx = 18;
+          let hy = 16;
+          let hw = 148;
+          let hh = 30;
+          setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+          noStroke();
+          fill(250, 245, 235, 225);
+          rect(hx, hy, hw, hh, 15);
+          clearShadow();
+
+          fill('#6b6356');
+          textAlign(LEFT, CENTER);
+          textSize(11.5);
+          text("晨露", hx + 12, hy + hh / 2 + 0.5);
+
+          for (let i = 0; i < MAX_DEW_COUNT; i++) {{
+            let cx = hx + 48 + i * 19;
+            let cy = hy + hh / 2;
+            if (i < collectedDewColors.length) {{
+              fill(collectedDewColors[i]);
+              circle(cx, cy, 11);
+              fill(255, 255, 255, 170);
+              circle(cx - 2, cy - 2, 3.5);
+            }} else {{
+              fill(215, 208, 195, 150);
+              circle(cx, cy, 9);
+            }}
+          }}
+          pop();
+        }}
+
+        // 2. 右上角静音开关
         push();
         let bx = width - 104;
         let by = 16;
@@ -593,12 +823,15 @@ def render():
         return null;
       }}
 
+      function getHoveredDew(px, py) {{
+        for (let d of dewDrops) {{
+          if (!d.collected && dist(px, py, d.x, d.y) < 18) return d;
+        }}
+        return null;
+      }}
+
       function updateCursorStyle() {{
         if (isPointOnMuteButton(mouseX, mouseY)) {{
-          cursor(HAND);
-          return;
-        }}
-        if (isPointOnChimney(mouseX, mouseY) || getHoveredWindow(mouseX, mouseY)) {{
           cursor(HAND);
           return;
         }}
@@ -606,7 +839,10 @@ def render():
           cursor(HAND);
           return;
         }}
-        if (frog.isPointOnFrog(mouseX, mouseY)) {{
+        if (frog.isPointOnFrog(mouseX, mouseY) ||
+            getClickedBird(mouseX, mouseY) ||
+            getClickedTreeCrown(mouseX, mouseY) ||
+            getHoveredDew(mouseX, mouseY)) {{
           cursor(HAND);
         }} else if (sprite.hasBucket && sprite.isPointOnBucket(mouseX, mouseY)) {{
           cursor(HAND);
@@ -629,31 +865,40 @@ def render():
           return;
         }}
 
-        // 0.5 小屋生活感彩蛋：点击砖红烟囱冒烟圈 / 点击左右窗户开关暖黄灯光（任何阶段均可互动）
-        if (isPointOnChimney(mouseX, mouseY)) {{
-          triggerChimneySmoke();
-          return;
-        }}
-        let hitWin = getHoveredWindow(mouseX, mouseY);
-        if (hitWin) {{
-          hitWin.lit = !hitWin.lit;
-          playChimeNote(hitWin.lit ? 659.25 : 493.88, 0.45, 0.08);
-          return;
-        }}
-
         if (sceneState === "HOUSE_CLOSED") {{
           sceneState = "SPRITE_EMERGING";
           playChimeNote(523.25, 0.6, 0.09, 0.0);
           playChimeNote(659.25, 0.6, 0.09, 0.12);
           playChimeNote(783.99, 0.8, 0.10, 0.24);
         }} else if (sceneState === "GARDEN_ACTIVE") {{
-          // 1. 优先判断：直接点击到小青蛙本体 -> 仅触发小青蛙连跳四下
+          // 1. 直接点击小青蛙 -> 连续跳四下
           if (frog.isPointOnFrog(mouseX, mouseY)) {{
             frog.jumpToNextPad();
             return;
           }}
 
-          // 2. 点击门前彩色鹅卵石 -> 奏出晨露音阶
+          // 2. 点击树梢小白鸟 -> 小鸟欢快跳跃对唱、飘出音符
+          let hitBird = getClickedBird(mouseX, mouseY);
+          if (hitBird) {{
+            hitBird.singAndHop();
+            return;
+          }}
+
+          // 3. 点击三棵大树树冠 -> 飘落折纸树叶
+          let hitTree = getClickedTreeCrown(mouseX, mouseY);
+          if (hitTree) {{
+            spawnTreeLeaves(mouseX, mouseY);
+            return;
+          }}
+
+          // 4. 点击盛开花朵上的彩色晨露 -> 收集晨露
+          let hitDew = getHoveredDew(mouseX, mouseY);
+          if (hitDew) {{
+            collectDewDrop(hitDew);
+            return;
+          }}
+
+          // 5. 点击门前彩色鹅卵石 -> 奏出晨露音阶
           let hitStone = getHoveredStone(mouseX, mouseY);
           if (hitStone) {{
             hitStone.glow = 1.0;
@@ -662,21 +907,28 @@ def render():
           }}
 
           if (sprite.hasBucket) {{
-            // 3. 只要鼠标在水池范围内点击 -> 优先执行舀水
+            // 6. 点击水池蓝色水面 -> 舀水并绽放睡莲
             if (isPointInPond(mouseX, mouseY)) {{
               sprite.scoopWater(mouseX, mouseY);
+              bloomNextWaterLily();
             }}
-            // 4. 在水池外精准点击水桶本体 -> 把水桶放在地上
+            // 7. 在水池外精准点击水桶本体 -> 把水桶放在地上
             else if (sprite.isPointOnBucket(mouseX, mouseY)) {{
               sprite.putBucketOnGround();
             }}
-            // 5. 已舀水后点击草地 -> 倾倒浇水
+            // 8. 已舀水后点击草地 -> 倾倒浇水
             else if (sprite.bucketHasWater) {{
               sprite.pourWater();
             }}
           }} else {{
-            // 6. 空手时点击地上的水桶 -> 拾起水桶
-            if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
+            // 9. 空手时点击水池也可以绽放睡莲与涟漪
+            if (isPointInPond(mouseX, mouseY)) {{
+              ripples.push(new PaperRipple(mouseX, mouseY));
+              playWaterDropSound(true);
+              bloomNextWaterLily();
+            }}
+            // 10. 空手时点击地上的水桶 -> 拾起水桶
+            else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
               sprite.pickUpBucket();
             }}
           }}
@@ -728,22 +980,24 @@ def render():
             g.targetGrowth = min(1, g.targetGrowth + 0.55);
           }}
         }}
-        let newlyBloomed = false;
+        let newlyBloomedPlant = null;
         for (let p of plants) {{
           if (dist(p.x, p.y, wx, wy) < 115) {{
             let prevBloom = p.targetBloom;
             p.targetBloom = min(1, p.targetBloom + 0.48);
-            if (prevBloom <= 0.65 && p.targetBloom > 0.65) {{
-              newlyBloomed = true;
+            if (prevBloom <= 0.65 && p.targetBloom > 0.65 && p.kind === 'flower') {{
+              newlyBloomedPlant = p;
             }}
             if (p.kind === 'flower') {{
               hasWateredFlowers = true;
             }}
           }}
         }}
-        if (newlyBloomed) {{
+        if (newlyBloomedPlant) {{
           const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
           playChimeNote(random(pentatonic), 0.7, 0.09);
+          // 花朵初次盛开时有机会凝结出一颗七彩晨露
+          maybeSpawnDewDrop(newlyBloomedPlant);
         }}
       }}
 
@@ -1044,6 +1298,17 @@ def render():
             circle(t.x, t.y, map(t.alpha, 0, 175, 2, 7));
           }}
 
+          // 已收集的七彩晨露化作小光点轻盈环绕花仙子飞舞
+          for (let i = 0; i < collectedDewColors.length; i++) {{
+            let ang = frameCount * 0.045 + (TWO_PI / collectedDewColors.length) * i;
+            let ox = this.x + cos(ang) * 44;
+            let oy = this.y + sin(ang * 1.3) * 22;
+            fill(collectedDewColors[i]);
+            circle(ox, oy, 7.5);
+            fill(255, 255, 255, 200);
+            circle(ox - 1.5, oy - 1.5, 2.5);
+          }}
+
           push();
           translate(this.x, this.y);
           rotate(constrain(this.vx * 0.03, -0.22, 0.22));
@@ -1171,6 +1436,7 @@ def render():
           this.bloom = 0.05;
           this.targetBloom = 0.05;
           this.stemHeight = kind === 'flower' ? random(14, 38) : 0;
+          this.hasSpawnedDew = false;
         }}
         update() {{
           this.bloom = lerp(this.bloom, this.targetBloom, 0.065);
@@ -1287,6 +1553,19 @@ def render():
         update() {{
           this.appearScale = lerp(this.appearScale, 1, 0.04);
           this.seed += 0.012;
+
+          // 如果水晶蝶王已经出现，所有小蝴蝶围绕花园上空跳起欢乐圆圈舞
+          if (crystalButterfly) {{
+            this.orbitAngle += 0.025;
+            let idx = butterflies.indexOf(this);
+            let ringAngle = this.orbitAngle + (TWO_PI / max(1, butterflies.length)) * idx;
+            let destX = 430 + cos(ringAngle) * 145;
+            let destY = 250 + sin(ringAngle) * 65;
+            this.x = lerp(this.x, destX, 0.03);
+            this.y = lerp(this.y, destY, 0.03);
+            return;
+          }}
+
           this.switchTimer--;
           if (!this.targetPlant || this.switchTimer <= 0) {{
             this.pickNewFlower();
@@ -1335,6 +1614,55 @@ def render():
         }}
       }}
 
+      // ================== 折纸水晶蝶王（集齐 5 颗晨露后召唤） ==================
+      class OrigamiCrystalButterfly {{
+        constructor() {{
+          this.x = 430;
+          this.y = 140;
+          this.angle = 0;
+          this.scaleVal = 0.05;
+        }}
+        update() {{
+          this.scaleVal = lerp(this.scaleVal, 1.35, 0.03);
+          this.angle += 0.018;
+          this.x = 430 + cos(this.angle) * 180;
+          this.y = 220 + sin(this.angle * 2) * 48;
+        }}
+        display() {{
+          let flap = cos(frameCount * 0.14);
+          push();
+          translate(this.x, this.y);
+          rotate(sin(this.angle) * 0.2);
+          scale(this.scaleVal);
+
+          // 柔和星辉光晕
+          noStroke();
+          fill(255, 250, 210, 85);
+          circle(0, 0, 46 + sin(frameCount * 0.12) * 8);
+
+          setPaperShadow(8, 2, 4, 'rgba(120, 150, 200, 0.28)');
+
+          push();
+          scale(flap, 1);
+          fill('#e0fbfc');
+          triangle(0, 0, -18, -13, -13, 5);
+          fill('#ffd166');
+          triangle(0, 2, -13, 5, -9, 13);
+          pop();
+
+          push();
+          scale(-flap, 1);
+          fill('#e0fbfc');
+          triangle(0, 0, -18, -13, -13, 5);
+          fill('#ffd166');
+          triangle(0, 2, -13, 5, -9, 13);
+          pop();
+
+          clearShadow();
+          pop();
+        }}
+      }}
+
       class OrigamiBird {{
         constructor(x, y, tx, ty, variant = 0) {{
           this.x = x;
@@ -1344,6 +1672,14 @@ def render():
           this.variant = variant;
           this.perched = false;
           this.facing = tx >= x ? 1 : -1;
+          this.hopTimer = 0;
+          this.proximityCooldown = 0;
+        }}
+        singAndHop() {{
+          if (this.hopTimer > 0) return;
+          this.hopTimer = 24;
+          playBirdChirpSound(this.variant);
+          spawnBirdMusicNotes(this.x, this.y);
         }}
         update() {{
           if (!this.perched) {{
@@ -1354,11 +1690,31 @@ def render():
               this.x = this.tx;
               this.y = this.ty;
             }}
+          }} else {{
+            // 花仙子飞近树梢小白鸟时自动触发晨间对唱
+            if (this.proximityCooldown > 0) this.proximityCooldown--;
+            if (sprite.visible && this.proximityCooldown === 0 && dist(sprite.x, sprite.y, this.x, this.y) < 52) {{
+              this.singAndHop();
+              this.proximityCooldown = 140;
+            }}
+          }}
+
+          if (this.hopTimer > 0) {{
+            this.hopTimer--;
           }}
         }}
         display() {{
+          let hopOffsetY = 0;
+          let hopTilt = 0;
+          if (this.hopTimer > 0) {{
+            // 欢快上下跳动两下并歪头
+            let p = 1 - this.hopTimer / 24;
+            hopOffsetY = -abs(sin(p * TWO_PI)) * 12;
+            hopTilt = sin(p * TWO_PI) * 0.24;
+          }}
+
           push();
-          translate(this.x, this.y);
+          translate(this.x, this.y + hopOffsetY);
           setPaperShadow(8, 2, 4, 'rgba(45, 40, 35, 0.24)');
 
           let img = birdImgs.length > 0 ? birdImgs[this.variant % birdImgs.length] : null;
@@ -1367,7 +1723,7 @@ def render():
             let flapScaleY = this.perched ? 1 : (1 + sin(frameCount * 0.32) * 0.06);
 
             scale(this.facing, flapScaleY);
-            rotate(idleTilt);
+            rotate(idleTilt + hopTilt);
 
             imageMode(CENTER);
             let targetH = 44;
