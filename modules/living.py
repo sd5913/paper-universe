@@ -42,6 +42,7 @@ def render():
     b1_uri = load_asset_data_uri(["bird1.png", "bird1.PNG", "bird.png", "bird.PNG"])
     b2_uri = load_asset_data_uri(["bird2.png", "bird2.PNG"])
     frog_uri = load_asset_data_uri(["frog.png", "frog.PNG"])
+    lotus_uri = load_asset_data_uri(["lotus.png", "lotus.PNG"])
 
     p5_html = f"""
     <!DOCTYPE html>
@@ -73,11 +74,13 @@ def render():
       const MUSHROOM_URIS = ["{m1_uri}", "{m2_uri}"];
       const BIRD_URIS = ["{b1_uri}", "{b2_uri}"];
       const FROG_IMG_DATA = "{frog_uri}";
+      const LOTUS_IMG_DATA = "{lotus_uri}";
 
       let bgImg = null;
       let fairyImg = null;
       let bucketImg = null;
       let frogImg = null;
+      let lotusImg = null;
       let flowerImgs = [];
       let mushroomImgs = [];
       let birdImgs = [];
@@ -358,6 +361,7 @@ def render():
         if (FAIRY_IMG_DATA) fairyImg = loadImage(FAIRY_IMG_DATA);
         if (BUCKET_IMG_DATA) bucketImg = loadImage(BUCKET_IMG_DATA);
         if (FROG_IMG_DATA) frogImg = loadImage(FROG_IMG_DATA);
+        if (LOTUS_IMG_DATA) lotusImg = loadImage(LOTUS_IMG_DATA);
 
         for (let uri of FLOWER_URIS) {{
           if (uri && uri.length > 0) flowerImgs.push(loadImage(uri));
@@ -1344,38 +1348,45 @@ def render():
       }}
 
       function drawWaterLilies() {{
-        for (let lily of waterLilies) {{
-          lily.bloom = lerp(lily.bloom, lily.targetBloom, 0.06);
-          if (lily.bloom <= 0.02) continue;
+     for (let lily of waterLilies) {{
+       lily.bloom = lerp(lily.bloom, lily.targetBloom, 0.06);
+       if (lily.bloom <= 0.02) continue;
 
-          push();
-          translate(lily.x, lily.y);
-          scale(lily.bloom);
-          rotate(sin(frameCount * 0.03 + lily.x) * 0.06);
-          setPaperShadow(5, 1, 2, 'rgba(40, 70, 90, 0.18)');
-          noStroke();
+       push();
+       translate(lily.x, lily.y);
+       scale(lily.bloom);
+       rotate(sin(frameCount * 0.03 + lily.x) * 0.06);
+       setPaperShadow(5, 1, 2, 'rgba(40, 70, 90, 0.18)');
 
-          for (let i = 0; i < 6; i++) {{
-            push();
-            rotate((TWO_PI / 6) * i);
-            fill(lily.color);
-            triangle(0, 0, -5, -13, 5, -13);
-            pop();
-          }}
-          for (let i = 0; i < 6; i++) {{
-            push();
-            rotate((TWO_PI / 6) * i + PI / 6);
-            fill('#ffffff');
-            triangle(0, 0, -3.5, -9, 3.5, -9);
-            pop();
-          }}
-          fill('#ffd166');
-          circle(0, 0, 5.5);
+       if (lotusImg) {{
+         imageMode(CENTER);
+         let targetH = 34; // 可根据你新设计的荷花比例微调大小
+         let targetW = targetH * (lotusImg.width / lotusImg.height);
+         image(lotusImg, 0, -2, targetW, targetH);
+       }} else {{
+         noStroke();
+         for (let i = 0; i < 6; i++) {{
+           push();
+           rotate((TWO_PI / 6) * i);
+           fill(lily.color);
+           triangle(0, 0, -5, -13, 5, -13);
+           pop();
+         }}
+         for (let i = 0; i < 6; i++) {{
+           push();
+           rotate((TWO_PI / 6) * i + PI / 6);
+           fill('#ffffff');
+           triangle(0, 0, -3.5, -9, 3.5, -9);
+           pop();
+         }}
+         fill('#ffd166');
+         circle(0, 0, 5.5);
+       }}
 
-          clearShadow();
-          pop();
-        }}
-      }}
+       clearShadow();
+       pop();
+     }}
+   }}
 
       function spawnTreeLeaves(cx, cy) {{
         playLeafRustleSound();
