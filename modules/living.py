@@ -85,13 +85,11 @@ def render():
       let mushroomImgs = [];
       let birdImgs = [];
 
-      // 立体书全局世界状态: "LIVING" | "TURNING_TO_WEATHER" | "WEATHER" | "TURNING_TO_LIVING"
       let bookMode = "LIVING";
-      let pageTurnProgress = 0;   // 0 -> 1 翻页进度
-      let popupProgress = 0;      // 0 -> 1 立体书机关弹出进度
-      let cornerHoverAmt = 0;     // 右下角卷页折角悬停动画
+      let pageTurnProgress = 0;
+      let popupProgress = 0;
+      let cornerHoverAmt = 0;
 
-      // Living World 状态
       let sceneState = "HOUSE_CLOSED";
       let doorGlow = 0;
       let sprite;
@@ -118,9 +116,8 @@ def render():
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
 
-      // Weather World 状态（组合天气元素 + 隐藏天气变化 + 收集天空能量）
-      let selectedWeatherElems = []; // 最多选 2 个元素组合: 'sun', 'cloud', 'rain', 'wind'
-      let activeComboWeather = null; // 'rainbow' | 'breeze_clouds' | 'sunshower' | 'thunder_glow' | 'clear_sun' | 'gentle_rain'
+      let selectedWeatherElems = [];
+      let activeComboWeather = null;
       let skyEnergyCount = 0;
       let skyEnergyOrbs = [];
       let weatherParticles = [];
@@ -128,7 +125,6 @@ def render():
       let comboBannerText = "";
       let comboBannerTimer = 0;
 
-      // ================== Web Audio API 零素材合成音效引擎 ==================
       let audioCtx = null;
       let soundEnabled = true;
 
@@ -144,13 +140,11 @@ def render():
         return audioCtx;
       }}
 
-      // 手工卡纸翻页摩擦声 + 立体书机关弹出音效
       function playPageFlipSound() {{
         let ctx = ensureAudio();
         if (!ctx) return;
         let now = ctx.currentTime;
 
-        // 1. 纸张摩擦白噪声（带通滤波模拟卡纸弯曲划过）
         let bufferSize = Math.floor(ctx.sampleRate * 0.65);
         let buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
         let data = buffer.getChannelData(0);
@@ -178,7 +172,6 @@ def render():
         gain.connect(ctx.destination);
         noise.start(now);
 
-        // 2. 翻页后半段立体书机关弹开清脆音
         playChimeNote(587.33, 0.45, 0.08, 0.48);
         playChimeNote(880.00, 0.55, 0.09, 0.58);
       }}
@@ -346,12 +339,10 @@ def render():
         return px >= width - 104 && px <= width - 16 && py >= 16 && py <= 46;
       }}
 
-      // 右下角立体书卷页折角触发判定
       function isPointOnPageCurl(px, py) {{
         return px >= width - 125 && py >= height - 115;
       }}
 
-      // 左下角返回花园卷页折角触发判定（在 Weather World 中）
       function isPointOnBackCurl(px, py) {{
         return px <= 125 && py >= height - 115;
       }}
@@ -451,7 +442,6 @@ def render():
         }}
       }}
 
-      // 弹性过冲曲线（用于立体书 Pop-up 机关弹出）
       function easeOutBack(t) {{
         const c1 = 1.70158;
         const c3 = c1 + 1;
@@ -465,39 +455,32 @@ def render():
           drawTopHUD();
         }}
         else if (bookMode === "TURNING_TO_WEATHER") {{
-          // 约 1.5 秒完整立体书翻页 + Pop-up 机关展开转场
           pageTurnProgress = min(1, pageTurnProgress + 0.022);
 
           if (pageTurnProgress < 0.52) {{
-            // 前半段（0 ~ 0.52）：底层露出奶白卡纸内页，Living World 从右向左 3D 翻折收起
             let t = pageTurnProgress / 0.52;
             drawBookBasePage();
-            renderWeatherWorld(0.0); // 底层静态云山基底
+            renderWeatherWorld(0.0);
 
             push();
             let scaleX = cos(t * HALF_PI);
-            // 纸张折起时的垂直微隆起透视
             let liftY = sin(t * PI) * -18;
             translate(0, liftY);
             scale(max(0.001, scaleX), 1);
             renderLivingWorld(1.0);
 
-            // 页面折弯处高光与阴影渐变
             noStroke();
             fill(45, 40, 35, t * 95);
             rect(0, 0, width, height);
             pop();
 
-            // 绘制厚卡纸翻折背面（米白色剪纸书页背面 + 书脊折痕阴影）
             let spineX = width * scaleX;
             drawTurningPaperBack(spineX, t);
           }} else {{
-            // 后半段（0.52 ~ 1.0）：新的一页展开，云朵、太阳、雨滴与风车像立体书机关一样逐层弹出
             let t = (pageTurnProgress - 0.52) / 0.48;
             popupProgress = t;
             renderWeatherWorld(popupProgress);
 
-            // 书脊阴影向左侧淡出
             noStroke();
             fill(45, 40, 35, (1 - t) * 45);
             rect(0, 0, (1 - t) * 90, height);
@@ -506,11 +489,9 @@ def render():
           if (pageTurnProgress >= 1) {{
             bookMode = "WEATHER";
             popupProgress = 1;
-            // 若花园里已有收获，作为初始天空能量赠予玩家
             if (skyEnergyCount === 0 && (harvestedFlowerCount + harvestedMushroomCount > 0)) {{
               skyEnergyCount = min(3, harvestedFlowerCount + harvestedMushroomCount);
             }}
-            // 向外部 Streamlit 父窗口广播模块切换事件（方便团队集成）
             try {{
               window.parent.postMessage({{ type: "PAPER_UNIVERSE_WORLD_CHANGE", world: "weather" }}, "*");
             }} catch (e) {{}}
@@ -523,7 +504,6 @@ def render():
           drawTopHUD();
         }}
         else if (bookMode === "TURNING_TO_LIVING") {{
-          // 从 Weather World 翻回 Living World 花园
           pageTurnProgress = min(1, pageTurnProgress + 0.025);
           if (pageTurnProgress < 0.5) {{
             let t = pageTurnProgress / 0.5;
@@ -552,10 +532,8 @@ def render():
         updateCursorStyle();
       }}
 
-      // ================== 立体书卡纸底页与翻页背面阴影 ==================
       function drawBookBasePage() {{
         background('#f4efe4');
-        // 中央书脊压痕线
         stroke(210, 200, 185, 160);
         strokeWeight(2);
         line(16, 0, 16, height);
@@ -566,7 +544,6 @@ def render():
         if (backW <= 2) return;
         push();
         noStroke();
-        // 折过来的卡纸背面（温暖手工纸色）
         setPaperShadow(18, -6, 4, 'rgba(45, 40, 35, 0.28)');
         fill('#efe8d8');
         quad(
@@ -577,14 +554,12 @@ def render():
         );
         clearShadow();
 
-        // 纸张折痕高光边缘
         stroke(255, 252, 245, 200);
         strokeWeight(2);
         line(spineX, 0, spineX, height);
         pop();
       }}
 
-      // ================== 右下角“折角书签 / 卷页提示” ==================
       function drawLivingPageCurl() {{
         let hovered = isPointOnPageCurl(mouseX, mouseY);
         let readyPulse = gardenVitality > 0.25 ? (sin(frameCount * 0.08) * 0.5 + 0.5) : 0;
@@ -596,12 +571,10 @@ def render():
         let cy = height;
 
         push();
-        // 1. 折角掀开后露出的下一页（Weather World 晴空蓝底页）
         noStroke();
         fill('#b8dcf2');
         triangle(cx, cy, cx - curlSize, cy, cx, cy - curlSize);
 
-        // 2. 卷起的厚卡纸三角折页（带立体纸张投影）
         setPaperShadow(12, -4, -4, 'rgba(45, 40, 35, 0.28)');
         fill('#f5efe2');
         triangle(
@@ -611,7 +584,6 @@ def render():
         );
         clearShadow();
 
-        // 3. 折痕边线与引导小标签
         stroke('#d6ccb8');
         strokeWeight(1.2);
         line(cx - curlSize, cy, cx, cy - curlSize);
@@ -646,7 +618,6 @@ def render():
         pop();
       }}
 
-      // ================== Living World 花园完整渲染 ==================
       function renderLivingWorld(alphaScale) {{
         if (bgImg) {{
           imageMode(CORNER);
@@ -745,7 +716,6 @@ def render():
         sprite.display();
       }}
 
-      // ================== Weather World（Pop-up 立体书天气世界） ==================
       const WEATHER_BUTTONS = [
         {{ id: 'sun',   label: '☀️ 晴阳', x: 250, y: 492 }},
         {{ id: 'cloud', label: '☁️ 积云', x: 370, y: 492 }},
@@ -800,7 +770,6 @@ def render():
           comboBannerTimer = 220;
           playChimeNote(523.25, 0.5, 0.09, 0);
           playChimeNote(783.99, 0.6, 0.10, 0.1);
-          // 组合出隐藏双元素天气时，生成 2 颗可收集的天空能量晶石
           if (selectedWeatherElems.length === 2) {{
             for (let i = 0; i < 2; i++) {{
               skyEnergyOrbs.push({{
@@ -816,19 +785,16 @@ def render():
       }}
 
       function renderWeatherWorld(popT) {{
-        // 1. 立体书天空底色（根据组合天气柔和渐变）
         let skyCol = color('#b9def5');
         if (activeComboWeather === 'thunder_glow') skyCol = color('#8faec9');
         else if (activeComboWeather === 'warm_breeze' || activeComboWeather === 'sun_halo') skyCol = color('#c4e3f7');
         background(skyCol);
 
-        // 书脊折痕与卡纸边框质感
         noFill();
         stroke('#f5efe2');
         strokeWeight(14);
         rect(0, 0, width, height, 14);
 
-        // 2. Pop-up 机关第一层：远山纸雕（从折痕处立起）
         let hillScale = constrain(easeOutBack(constrain(popT * 1.4, 0, 1)), 0, 1.15);
         push();
         translate(width / 2, 430);
@@ -843,7 +809,6 @@ def render():
         clearShadow();
         pop();
 
-        // 3. 隐藏天气特效层：折纸彩虹 / 日晕
         if (activeComboWeather === 'rainbow') {{
           push();
           translate(430, 360);
@@ -866,7 +831,6 @@ def render():
           pop();
         }}
 
-        // 4. Pop-up 机关第二层：折纸太阳（左上天空弹出）
         let sunPop = constrain(easeOutBack(constrain((popT - 0.12) * 1.4, 0, 1)), 0, 1.2);
         let sunBoost = selectedWeatherElems.includes('sun') ? 1.18 : 0.92;
         push();
@@ -889,7 +853,6 @@ def render():
         clearShadow();
         pop();
 
-        // 5. Pop-up 机关第三层：三朵立体剪纸云朵（逐层立起）
         let cloudPop = constrain(easeOutBack(constrain((popT - 0.22) * 1.4, 0, 1)), 0, 1.2);
         let windSpeed = selectedWeatherElems.includes('wind') ? 0.035 : 0.012;
         const weatherClouds = [
@@ -914,9 +877,7 @@ def render():
           pop();
         }}
 
-        // 6. Pop-up 机关第四层：中央云丘与折纸风车（地面折痕弹出）
         let millPop = constrain(easeOutBack(constrain((popT - 0.34) * 1.5, 0, 1)), 0, 1.2);
-        // 底部云海台座
         push();
         translate(width / 2, 445);
         scale(1, millPop);
@@ -928,19 +889,16 @@ def render():
         rect(0, 35, width, 110);
         pop();
 
-        // 折纸风车
         push();
         translate(430, 385);
         scale(millPop);
         setPaperShadow(10, 2, 4, 'rgba(55, 65, 50, 0.22)');
         noStroke();
-        // 风车塔身
         fill('#e6ccb2');
         quad(-22, 0, 22, 0, 14, -95, -14, -95);
         fill('#ddb892');
         triangle(-16, -95, 16, -95, 0, -118);
 
-        // 旋转四叶折纸风车叶片
         let rotSpd = selectedWeatherElems.includes('wind') ? 0.065 : 0.016;
         windmillAngle += rotSpd;
         translate(0, -92);
@@ -960,13 +918,9 @@ def render():
         clearShadow();
         pop();
 
-        // 7. 实时天气粒子（雨滴 / 蒲公英风絮 / 雷光微粒）
         updateAndDrawWeatherParticles();
-
-        // 8. 可点击收集的“天空能量晶石”
         updateAndDrawSkyEnergyOrbs();
 
-        // 9. 底部天气元素组合控制栏
         if (popT > 0.7) {{
           drawWeatherControlDock();
         }}
@@ -1028,7 +982,6 @@ def render():
       }}
 
       function updateAndDrawSkyEnergyOrbs() {{
-        // 定时也会自然飘落一颗天空能量晶石供收集
         if (bookMode === "WEATHER" && skyEnergyOrbs.length < 3 && frameCount % 180 === 0) {{
           skyEnergyOrbs.push({{
             x: random(200, 660),
@@ -1061,7 +1014,6 @@ def render():
           fill(255, 243, 176, 95);
           circle(0, 0, 30 + pulse);
 
-          // 菱形折纸天空能量晶石
           fill('#ffd166');
           triangle(0, -11, -8, 0, 0, 11);
           fill('#fff3b0');
@@ -1104,7 +1056,6 @@ def render():
         }}
       }}
 
-      // ================== 通用辅助与顶部状态栏 ==================
       function drawTopHUD() {{
         let hy = 16;
         let hh = 30;
@@ -1126,7 +1077,6 @@ def render():
             pop();
           }}
         }} else {{
-          // Weather World 左上角：天空能量收集计数器
           push();
           let bw = 146;
           setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
@@ -1142,7 +1092,6 @@ def render():
           pop();
         }}
 
-        // 右上角静音开关
         push();
         let bx = width - 104;
         let by = 16;
@@ -1348,45 +1297,45 @@ def render():
       }}
 
       function drawWaterLilies() {{
-     for (let lily of waterLilies) {{
-       lily.bloom = lerp(lily.bloom, lily.targetBloom, 0.06);
-       if (lily.bloom <= 0.02) continue;
+        for (let lily of waterLilies) {{
+          lily.bloom = lerp(lily.bloom, lily.targetBloom, 0.06);
+          if (lily.bloom <= 0.02) continue;
 
-       push();
-       translate(lily.x, lily.y);
-       scale(lily.bloom);
-       rotate(sin(frameCount * 0.03 + lily.x) * 0.06);
-       setPaperShadow(5, 1, 2, 'rgba(40, 70, 90, 0.18)');
+          push();
+          translate(lily.x, lily.y);
+          scale(lily.bloom);
+          rotate(sin(frameCount * 0.03 + lily.x) * 0.06);
+          setPaperShadow(5, 1, 2, 'rgba(40, 70, 90, 0.18)');
 
-       if (lotusImg) {{
-         imageMode(CENTER);
-         let targetH = 34; // 可根据你新设计的荷花比例微调大小
-         let targetW = targetH * (lotusImg.width / lotusImg.height);
-         image(lotusImg, 0, -2, targetW, targetH);
-       }} else {{
-         noStroke();
-         for (let i = 0; i < 6; i++) {{
-           push();
-           rotate((TWO_PI / 6) * i);
-           fill(lily.color);
-           triangle(0, 0, -5, -13, 5, -13);
-           pop();
-         }}
-         for (let i = 0; i < 6; i++) {{
-           push();
-           rotate((TWO_PI / 6) * i + PI / 6);
-           fill('#ffffff');
-           triangle(0, 0, -3.5, -9, 3.5, -9);
-           pop();
-         }}
-         fill('#ffd166');
-         circle(0, 0, 5.5);
-       }}
+          if (lotusImg) {{
+            imageMode(CENTER);
+            let targetH = 34;
+            let targetW = targetH * (lotusImg.width / lotusImg.height);
+            image(lotusImg, 0, -2, targetW, targetH);
+          }} else {{
+            noStroke();
+            for (let i = 0; i < 6; i++) {{
+              push();
+              rotate((TWO_PI / 6) * i);
+              fill(lily.color);
+              triangle(0, 0, -5, -13, 5, -13);
+              pop();
+            }}
+            for (let i = 0; i < 6; i++) {{
+              push();
+              rotate((TWO_PI / 6) * i + PI / 6);
+              fill('#ffffff');
+              triangle(0, 0, -3.5, -9, 3.5, -9);
+              pop();
+            }}
+            fill('#ffd166');
+            circle(0, 0, 5.5);
+          }}
 
-       clearShadow();
-       pop();
-     }}
-   }}
+          clearShadow();
+          pop();
+        }}
+      }}
 
       function spawnTreeLeaves(cx, cy) {{
         playLeafRustleSound();
@@ -1546,7 +1495,6 @@ def render():
           return;
         }}
 
-        // Living World 指针判断
         if (isPointOnPageCurl(mouseX, mouseY)) {{
           cursor(HAND);
           return;
@@ -1580,7 +1528,6 @@ def render():
           return;
         }}
 
-        // 1. Weather World 模式下的点击交互
         if (bookMode === "WEATHER") {{
           if (isPointOnBackCurl(mouseX, mouseY)) {{
             bookMode = "TURNING_TO_LIVING";
@@ -1588,7 +1535,6 @@ def render():
             playPageFlipSound();
             return;
           }}
-          // 点击收集天空能量晶石
           for (let orb of skyEnergyOrbs) {{
             if (!orb.collected && dist(mouseX, mouseY, orb.x, orb.y) < 24) {{
               orb.collected = true;
@@ -1598,7 +1544,6 @@ def render():
               return;
             }}
           }}
-          // 点击天气元素组合按钮
           for (let btn of WEATHER_BUTTONS) {{
             if (abs(mouseX - btn.x) <= 52 && abs(mouseY - btn.y) <= 20) {{
               toggleWeatherElement(btn.id);
@@ -1610,7 +1555,6 @@ def render():
 
         if (bookMode !== "LIVING") return;
 
-        // 2. 点击右下角折角书签 -> 触发立体书 3D 翻页转场前往 Weather World
         if (isPointOnPageCurl(mouseX, mouseY)) {{
           bookMode = "TURNING_TO_WEATHER";
           pageTurnProgress = 0;
