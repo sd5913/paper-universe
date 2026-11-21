@@ -23,10 +23,10 @@ def load_asset_data_uri(filenames: list[str]) -> str:
 
 
 def render():
-    """Display the Living World module."""
+    """Display the Living World module with Origami Pop-up Page Turn to Weather World."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击木门唤醒花仙子；点击大树树冠摇落折纸树叶，点击荷叶小青蛙连跳四下，点击门前鹅卵石奏响音阶；拾起水壶在荷花池舀水并浇灌花朵与蘑菇，盛开后点击它们即可采摘（伴随花瓣与孢子飞散）！"
+        "点击木门唤醒花仙子，体验花园生态互动；随时点击右下角的【立体书折角】，即可伴随手工卡纸翻页动画与 Pop-up 弹出机关翻入【Weather World 天气世界】！"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -82,6 +82,13 @@ def render():
       let mushroomImgs = [];
       let birdImgs = [];
 
+      // 立体书全局世界状态: "LIVING" | "TURNING_TO_WEATHER" | "WEATHER" | "TURNING_TO_LIVING"
+      let bookMode = "LIVING";
+      let pageTurnProgress = 0;   // 0 -> 1 翻页进度
+      let popupProgress = 0;      // 0 -> 1 立体书机关弹出进度
+      let cornerHoverAmt = 0;     // 右下角卷页折角悬停动画
+
+      // Living World 状态
       let sceneState = "HOUSE_CLOSED";
       let doorGlow = 0;
       let sprite;
@@ -93,23 +100,30 @@ def render():
       let butterflies = [];
       let birds = [];
       let stepStones = [];
-
-      // 自然生态交互系统状态
       let fallingLeaves = [];
       let waterLilies = [];
       let musicNotes = [];
 
-      // 采摘花朵与蘑菇精细化系统
-      let harvestedItems = [];      // 抛物线飞向花仙子的采摘战利品
-      let harvestParticles = [];    // 采摘瞬间的折纸花瓣 & 金色孢子粒子
-      let orbitWreathItems = [];    // 近期采摘后短暂环绕花仙子的迷你花环挂饰
-      let fairyBurstRing = 0;       // 每采满 5 份收获时的星尘光环
+      let harvestedItems = [];
+      let harvestParticles = [];
+      let orbitWreathItems = [];
+      let fairyBurstRing = 0;
       let harvestedFlowerCount = 0;
       let harvestedMushroomCount = 0;
 
       let gardenVitality = 0;
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
+
+      // Weather World 状态（组合天气元素 + 隐藏天气变化 + 收集天空能量）
+      let selectedWeatherElems = []; // 最多选 2 个元素组合: 'sun', 'cloud', 'rain', 'wind'
+      let activeComboWeather = null; // 'rainbow' | 'breeze_clouds' | 'sunshower' | 'thunder_glow' | 'clear_sun' | 'gentle_rain'
+      let skyEnergyCount = 0;
+      let skyEnergyOrbs = [];
+      let weatherParticles = [];
+      let windmillAngle = 0;
+      let comboBannerText = "";
+      let comboBannerTimer = 0;
 
       // ================== Web Audio API 零素材合成音效引擎 ==================
       let audioCtx = null;
@@ -125,6 +139,45 @@ def render():
           audioCtx.resume();
         }}
         return audioCtx;
+      }}
+
+      // 手工卡纸翻页摩擦声 + 立体书机关弹出音效
+      function playPageFlipSound() {{
+        let ctx = ensureAudio();
+        if (!ctx) return;
+        let now = ctx.currentTime;
+
+        // 1. 纸张摩擦白噪声（带通滤波模拟卡纸弯曲划过）
+        let bufferSize = Math.floor(ctx.sampleRate * 0.65);
+        let buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        let data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {{
+          data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufferSize) * Math.PI);
+        }}
+
+        let noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        let filter = ctx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(650, now);
+        filter.frequency.exponentialRampToValueAtTime(1900, now + 0.35);
+        filter.frequency.exponentialRampToValueAtTime(850, now + 0.65);
+        filter.Q.value = 1.6;
+
+        let gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.64);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start(now);
+
+        // 2. 翻页后半段立体书机关弹开清脆音
+        playChimeNote(587.33, 0.45, 0.08, 0.48);
+        playChimeNote(880.00, 0.55, 0.09, 0.58);
       }}
 
       function playChimeNote(freq, duration = 0.55, volume = 0.11, delay = 0) {{
@@ -290,6 +343,16 @@ def render():
         return px >= width - 104 && px <= width - 16 && py >= 16 && py <= 46;
       }}
 
+      // 右下角立体书卷页折角触发判定
+      function isPointOnPageCurl(px, py) {{
+        return px >= width - 125 && py >= height - 115;
+      }}
+
+      // 左下角返回花园卷页折角触发判定（在 Weather World 中）
+      function isPointOnBackCurl(px, py) {{
+        return px <= 125 && py >= height - 115;
+      }}
+
       function preload() {{
         if (BG_IMG_DATA) bgImg = loadImage(BG_IMG_DATA);
         if (FAIRY_IMG_DATA) fairyImg = loadImage(FAIRY_IMG_DATA);
@@ -347,7 +410,6 @@ def render():
         }}
 
         const plantConfigs = [
-          // --- 区域一：左下角水池周围 & 左边大树旁 ---
           {{ x: 52,  y: 475, kind: 'flower',   variant: 0 }},
           {{ x: 78,  y: 515, kind: 'flower',   variant: 1 }},
           {{ x: 105, y: 495, kind: 'flower',   variant: 2 }},
@@ -356,22 +418,16 @@ def render():
           {{ x: 198, y: 536, kind: 'flower',   variant: 1 }},
           {{ x: 232, y: 518, kind: 'flower',   variant: 2 }},
           {{ x: 265, y: 534, kind: 'flower',   variant: 0 }},
-
-          // --- 区域二：水池右侧到石头小路左边（x <= 412） ---
           {{ x: 325, y: 485, kind: 'flower',   variant: 1 }},
           {{ x: 348, y: 522, kind: 'flower',   variant: 2 }},
           {{ x: 368, y: 472, kind: 'flower',   variant: 0 }},
           {{ x: 385, y: 505, kind: 'flower',   variant: 1 }},
           {{ x: 406, y: 534, kind: 'flower',   variant: 2 }},
           {{ x: 408, y: 465, kind: 'flower',   variant: 0 }},
-
-          // --- 区域三：中间大树树干两侧 ---
           {{ x: 332, y: 358, kind: 'flower',   variant: 2 }},
           {{ x: 354, y: 348, kind: 'flower',   variant: 1 }},
           {{ x: 398, y: 356, kind: 'mushroom', variant: 1 }},
           {{ x: 418, y: 348, kind: 'flower',   variant: 0 }},
-
-          // --- 区域四：石头小路右侧 & 右边大树旁（x >= 615） ---
           {{ x: 615, y: 478, kind: 'flower',   variant: 0 }},
           {{ x: 632, y: 522, kind: 'flower',   variant: 1 }},
           {{ x: 665, y: 492, kind: 'flower',   variant: 2 }},
@@ -381,8 +437,6 @@ def render():
           {{ x: 765, y: 445, kind: 'flower',   variant: 2 }},
           {{ x: 795, y: 415, kind: 'flower',   variant: 0 }},
           {{ x: 822, y: 375, kind: 'flower',   variant: 1 }},
-
-          // --- 新增：右下角最下方空白草地 ---
           {{ x: 738, y: 525, kind: 'flower',   variant: 2 }},
           {{ x: 772, y: 505, kind: 'flower',   variant: 0 }},
           {{ x: 798, y: 536, kind: 'flower',   variant: 1 }},
@@ -393,7 +447,203 @@ def render():
         }}
       }}
 
+      // 弹性过冲曲线（用于立体书 Pop-up 机关弹出）
+      function easeOutBack(t) {{
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2);
+      }}
+
       function draw() {{
+        if (bookMode === "LIVING") {{
+          renderLivingWorld(1.0);
+          drawLivingPageCurl();
+          drawTopHUD();
+        }}
+        else if (bookMode === "TURNING_TO_WEATHER") {{
+          // 约 1.5 秒完整立体书翻页 + Pop-up 机关展开转场
+          pageTurnProgress = min(1, pageTurnProgress + 0.022);
+
+          if (pageTurnProgress < 0.52) {{
+            // 前半段（0 ~ 0.52）：底层露出奶白卡纸内页，Living World 从右向左 3D 翻折收起
+            let t = pageTurnProgress / 0.52;
+            drawBookBasePage();
+            renderWeatherWorld(0.0); // 底层静态云山基底
+
+            push();
+            let scaleX = cos(t * HALF_PI);
+            // 纸张折起时的垂直微隆起透视
+            let liftY = sin(t * PI) * -18;
+            translate(0, liftY);
+            scale(max(0.001, scaleX), 1);
+            renderLivingWorld(1.0);
+
+            // 页面折弯处高光与阴影渐变
+            noStroke();
+            fill(45, 40, 35, t * 95);
+            rect(0, 0, width, height);
+            pop();
+
+            // 绘制厚卡纸翻折背面（米白色剪纸书页背面 + 书脊折痕阴影）
+            let spineX = width * scaleX;
+            drawTurningPaperBack(spineX, t);
+          }} else {{
+            // 后半段（0.52 ~ 1.0）：新的一页展开，云朵、太阳、雨滴与风车像立体书机关一样逐层弹出
+            let t = (pageTurnProgress - 0.52) / 0.48;
+            popupProgress = t;
+            renderWeatherWorld(popupProgress);
+
+            // 书脊阴影向左侧淡出
+            noStroke();
+            fill(45, 40, 35, (1 - t) * 45);
+            rect(0, 0, (1 - t) * 90, height);
+          }}
+
+          if (pageTurnProgress >= 1) {{
+            bookMode = "WEATHER";
+            popupProgress = 1;
+            // 若花园里已有收获，作为初始天空能量赠予玩家
+            if (skyEnergyCount === 0 && (harvestedFlowerCount + harvestedMushroomCount > 0)) {{
+              skyEnergyCount = min(3, harvestedFlowerCount + harvestedMushroomCount);
+            }}
+            // 向外部 Streamlit 父窗口广播模块切换事件（方便团队集成）
+            try {{
+              window.parent.postMessage({{ type: "PAPER_UNIVERSE_WORLD_CHANGE", world: "weather" }}, "*");
+            }} catch (e) {{}}
+          }}
+          drawTopHUD();
+        }}
+        else if (bookMode === "WEATHER") {{
+          renderWeatherWorld(1.0);
+          drawWeatherBackCurl();
+          drawTopHUD();
+        }}
+        else if (bookMode === "TURNING_TO_LIVING") {{
+          // 从 Weather World 翻回 Living World 花园
+          pageTurnProgress = min(1, pageTurnProgress + 0.025);
+          if (pageTurnProgress < 0.5) {{
+            let t = pageTurnProgress / 0.5;
+            renderLivingWorld(1.0);
+            push();
+            translate(width, 0);
+            scale(max(0.001, cos(t * HALF_PI)), 1);
+            translate(-width, 0);
+            renderWeatherWorld(1.0);
+            fill(45, 40, 35, t * 80);
+            rect(0, 0, width, height);
+            pop();
+          }} else {{
+            let t = (pageTurnProgress - 0.5) / 0.5;
+            renderLivingWorld(1.0);
+            noStroke();
+            fill(45, 40, 35, (1 - t) * 40);
+            rect(width - (1 - t) * 90, 0, (1 - t) * 90, height);
+          }}
+          if (pageTurnProgress >= 1) {{
+            bookMode = "LIVING";
+          }}
+          drawTopHUD();
+        }}
+
+        updateCursorStyle();
+      }}
+
+      // ================== 立体书卡纸底页与翻页背面阴影 ==================
+      function drawBookBasePage() {{
+        background('#f4efe4');
+        // 中央书脊压痕线
+        stroke(210, 200, 185, 160);
+        strokeWeight(2);
+        line(16, 0, 16, height);
+      }}
+
+      function drawTurningPaperBack(spineX, t) {{
+        let backW = sin(t * PI) * 140;
+        if (backW <= 2) return;
+        push();
+        noStroke();
+        // 折过来的卡纸背面（温暖手工纸色）
+        setPaperShadow(18, -6, 4, 'rgba(45, 40, 35, 0.28)');
+        fill('#efe8d8');
+        quad(
+          spineX, 0,
+          spineX + backW, 18,
+          spineX + backW, height - 18,
+          spineX, height
+        );
+        clearShadow();
+
+        // 纸张折痕高光边缘
+        stroke(255, 252, 245, 200);
+        strokeWeight(2);
+        line(spineX, 0, spineX, height);
+        pop();
+      }}
+
+      // ================== 右下角“折角书签 / 卷页提示” ==================
+      function drawLivingPageCurl() {{
+        let hovered = isPointOnPageCurl(mouseX, mouseY);
+        let readyPulse = gardenVitality > 0.25 ? (sin(frameCount * 0.08) * 0.5 + 0.5) : 0;
+        let targetCurl = hovered ? 1.0 : (0.45 + readyPulse * 0.18);
+        cornerHoverAmt = lerp(cornerHoverAmt, targetCurl, 0.14);
+
+        let curlSize = 44 + cornerHoverAmt * 26;
+        let cx = width;
+        let cy = height;
+
+        push();
+        // 1. 折角掀开后露出的下一页（Weather World 晴空蓝底页）
+        noStroke();
+        fill('#b8dcf2');
+        triangle(cx, cy, cx - curlSize, cy, cx, cy - curlSize);
+
+        // 2. 卷起的厚卡纸三角折页（带立体纸张投影）
+        setPaperShadow(12, -4, -4, 'rgba(45, 40, 35, 0.28)');
+        fill('#f5efe2');
+        triangle(
+          cx - curlSize, cy,
+          cx, cy - curlSize,
+          cx - curlSize * 0.88, cy - curlSize * 0.88
+        );
+        clearShadow();
+
+        // 3. 折痕边线与引导小标签
+        stroke('#d6ccb8');
+        strokeWeight(1.2);
+        line(cx - curlSize, cy, cx, cy - curlSize);
+
+        noStroke();
+        fill('#6b6356');
+        textAlign(RIGHT, BOTTOM);
+        textSize(hovered ? 12 : 11);
+        text(hovered ? "翻页前往 Weather World ▸" : "天气世界 ▸", cx - curlSize - 8, cy - 10);
+        pop();
+      }}
+
+      function drawWeatherBackCurl() {{
+        let hovered = isPointOnBackCurl(mouseX, mouseY);
+        let curlSize = hovered ? 62 : 42;
+        let cy = height;
+
+        push();
+        noStroke();
+        fill('#c9d89c');
+        triangle(0, cy, curlSize, cy, 0, cy - curlSize);
+
+        setPaperShadow(10, 4, -4, 'rgba(45, 40, 35, 0.25)');
+        fill('#f5efe2');
+        triangle(curlSize, cy, 0, cy - curlSize, curlSize * 0.88, cy - curlSize * 0.88);
+        clearShadow();
+
+        fill('#6b6356');
+        textAlign(LEFT, BOTTOM);
+        textSize(11);
+        text("◂ 返回花园", curlSize + 8, cy - 10);
+        pop();
+      }}
+
+      // ================== Living World 花园完整渲染 ==================
+      function renderLivingWorld(alphaScale) {{
         if (bgImg) {{
           imageMode(CORNER);
           image(bgImg, 0, 0, width, height);
@@ -475,12 +725,13 @@ def render():
         updateAndDrawFallingLeaves();
         updateAndDrawMusicNotes();
 
-        if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % 7 === 0) {{
+        if (bookMode === "LIVING" && sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % 7 === 0) {{
           if (!isPointInPond(mouseX, mouseY) &&
               !frog.isPointOnFrog(mouseX, mouseY) &&
               !getClickedBird(mouseX, mouseY) &&
               !getClickedTreeCrown(mouseX, mouseY) &&
               !getClickedRipePlant(mouseX, mouseY) &&
+              !isPointOnPageCurl(mouseX, mouseY) &&
               !isPointOnMuteButton(mouseX, mouseY)) {{
             sprite.pourWater();
           }}
@@ -488,12 +739,424 @@ def render():
 
         sprite.update();
         sprite.display();
-
-        drawTopHUD();
-        updateCursorStyle();
       }}
 
-      // ================== 采摘盛开的花朵与蘑菇（含花瓣/孢子粒子、泥土波纹与花环反馈） ==================
+      // ================== Weather World（Pop-up 立体书天气世界） ==================
+      const WEATHER_BUTTONS = [
+        {{ id: 'sun',   label: '☀️ 晴阳', x: 250, y: 492 }},
+        {{ id: 'cloud', label: '☁️ 积云', x: 370, y: 492 }},
+        {{ id: 'rain',  label: '💧 雨滴', x: 490, y: 492 }},
+        {{ id: 'wind',  label: '🍃 微风', x: 610, y: 492 }}
+      ];
+
+      function toggleWeatherElement(id) {{
+        let idx = selectedWeatherElems.indexOf(id);
+        if (idx >= 0) {{
+          selectedWeatherElems.splice(idx, 1);
+        }} else {{
+          if (selectedWeatherElems.length >= 2) {{
+            selectedWeatherElems.shift();
+          }}
+          selectedWeatherElems.push(id);
+        }}
+        evaluateWeatherCombination();
+      }}
+
+      function evaluateWeatherCombination() {{
+        let has = (k) => selectedWeatherElems.includes(k);
+        let prevCombo = activeComboWeather;
+
+        if (has('sun') && has('rain')) {{
+          activeComboWeather = 'rainbow';
+          comboBannerText = "✨ 隐藏天气【晴雨折纸虹】出现！点击飘落的能量晶石收集";
+        }} else if (has('cloud') && has('wind')) {{
+          activeComboWeather = 'breeze_clouds';
+          comboBannerText = "🍃 隐藏天气【流云风车舞】激活！风车加速转动汇聚能量";
+        }} else if (has('cloud') && has('rain')) {{
+          activeComboWeather = 'thunder_glow';
+          comboBannerText = "⚡ 隐藏天气【星辉雷雨云】降临！云层落下金色能量雨";
+        }} else if (has('sun') && has('wind')) {{
+          activeComboWeather = 'warm_breeze';
+          comboBannerText = "🌼 隐藏天气【暖风蒲公英】吹起！天空飘起绒毛光粒";
+        }} else if (has('sun') && has('cloud')) {{
+          activeComboWeather = 'sun_halo';
+          comboBannerText = "🌤️ 隐藏天气【云隙日晕】展开！金色折纸光环显现";
+        }} else if (has('rain') && has('wind')) {{
+          activeComboWeather = 'slant_rain';
+          comboBannerText = "🌧️ 隐藏天气【斜风细雨丝】织成银色纸帘！";
+        }} else if (selectedWeatherElems.length === 1) {{
+          activeComboWeather = selectedWeatherElems[0];
+          comboBannerText = "再点击另一个天气元素，尝试组合出隐藏天气变化！";
+        }} else {{
+          activeComboWeather = null;
+          comboBannerText = "";
+        }}
+
+        if (activeComboWeather && activeComboWeather !== prevCombo) {{
+          comboBannerTimer = 220;
+          playChimeNote(523.25, 0.5, 0.09, 0);
+          playChimeNote(783.99, 0.6, 0.10, 0.1);
+          // 组合出隐藏双元素天气时，生成 2 颗可收集的天空能量晶石
+          if (selectedWeatherElems.length === 2) {{
+            for (let i = 0; i < 2; i++) {{
+              skyEnergyOrbs.push({{
+                x: random(220, 640),
+                y: random(110, 190),
+                vy: random(0.45, 0.85),
+                phase: random(TWO_PI),
+                collected: false
+              }});
+            }}
+          }}
+        }}
+      }}
+
+      function renderWeatherWorld(popT) {{
+        // 1. 立体书天空底色（根据组合天气柔和渐变）
+        let skyCol = color('#b9def5');
+        if (activeComboWeather === 'thunder_glow') skyCol = color('#8faec9');
+        else if (activeComboWeather === 'warm_breeze' || activeComboWeather === 'sun_halo') skyCol = color('#c4e3f7');
+        background(skyCol);
+
+        // 书脊折痕与卡纸边框质感
+        noFill();
+        stroke('#f5efe2');
+        strokeWeight(14);
+        rect(0, 0, width, height, 14);
+
+        // 2. Pop-up 机关第一层：远山纸雕（从折痕处立起）
+        let hillScale = constrain(easeOutBack(constrain(popT * 1.4, 0, 1)), 0, 1.15);
+        push();
+        translate(width / 2, 430);
+        scale(1, hillScale);
+        setPaperShadow(10, 0, -4, 'rgba(60, 80, 100, 0.14)');
+        noStroke();
+        fill('#e9dec9');
+        triangle(-430, 0, -210, -145, 40, 0);
+        triangle(-90, 0, 160, -165, 430, 0);
+        fill('#dfd2ba');
+        triangle(-280, 0, -30, -115, 220, 0);
+        clearShadow();
+        pop();
+
+        // 3. 隐藏天气特效层：折纸彩虹 / 日晕
+        if (activeComboWeather === 'rainbow') {{
+          push();
+          translate(430, 360);
+          noFill();
+          strokeWeight(12);
+          const cols = ['#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff'];
+          for (let i = 0; i < cols.length; i++) {{
+            stroke(cols[i]);
+            let r = 480 - i * 22;
+            arc(0, 0, r, r * 0.82, PI + 0.1, TWO_PI - 0.1);
+          }}
+          pop();
+        }} else if (activeComboWeather === 'sun_halo') {{
+          push();
+          translate(195, 130);
+          noFill();
+          stroke(255, 236, 153, 150);
+          strokeWeight(6);
+          circle(0, 0, 165 + sin(frameCount * 0.05) * 8);
+          pop();
+        }}
+
+        // 4. Pop-up 机关第二层：折纸太阳（左上天空弹出）
+        let sunPop = constrain(easeOutBack(constrain((popT - 0.12) * 1.4, 0, 1)), 0, 1.2);
+        let sunBoost = selectedWeatherElems.includes('sun') ? 1.18 : 0.92;
+        push();
+        translate(195, 130);
+        scale(sunPop * sunBoost);
+        rotate(frameCount * 0.008);
+        setPaperShadow(10, 2, 4, 'rgba(180, 130, 40, 0.22)');
+        noStroke();
+        fill('#ffd166');
+        for (let i = 0; i < 12; i++) {{
+          push();
+          rotate((TWO_PI / 12) * i);
+          triangle(-7, -38, 7, -38, 0, -56);
+          pop();
+        }}
+        fill('#ffbe0b');
+        circle(0, 0, 64);
+        fill('#ffe699');
+        circle(-8, -8, 22);
+        clearShadow();
+        pop();
+
+        // 5. Pop-up 机关第三层：三朵立体剪纸云朵（逐层立起）
+        let cloudPop = constrain(easeOutBack(constrain((popT - 0.22) * 1.4, 0, 1)), 0, 1.2);
+        let windSpeed = selectedWeatherElems.includes('wind') ? 0.035 : 0.012;
+        const weatherClouds = [
+          {{ bx: 365, by: 145, s: 1.15 }},
+          {{ bx: 560, by: 118, s: 0.95 }},
+          {{ bx: 685, by: 185, s: 1.05 }}
+        ];
+        for (let idx = 0; idx < weatherClouds.length; idx++) {{
+          let wc = weatherClouds[idx];
+          let swayX = sin(frameCount * windSpeed + idx * 1.8) * (selectedWeatherElems.includes('wind') ? 22 : 10);
+          push();
+          translate(wc.bx + swayX, wc.by);
+          scale(cloudPop * wc.s);
+          setPaperShadow(10, 2, 5, 'rgba(65, 85, 110, 0.18)');
+          noStroke();
+          fill(activeComboWeather === 'thunder_glow' ? '#d8e2dc' : '#f7f3ea');
+          ellipse(-30, 8, 48, 36);
+          ellipse(0, -5, 58, 48);
+          ellipse(30, 7, 48, 38);
+          rect(-32, 4, 64, 22, 11);
+          clearShadow();
+          pop();
+        }}
+
+        // 6. Pop-up 机关第四层：中央云丘与折纸风车（地面折痕弹出）
+        let millPop = constrain(easeOutBack(constrain((popT - 0.34) * 1.5, 0, 1)), 0, 1.2);
+        // 底部云海台座
+        push();
+        translate(width / 2, 445);
+        scale(1, millPop);
+        noStroke();
+        fill('#f5efe2');
+        ellipse(-260, 10, 240, 85);
+        ellipse(0, 0, 320, 105);
+        ellipse(260, 10, 240, 85);
+        rect(0, 35, width, 110);
+        pop();
+
+        // 折纸风车
+        push();
+        translate(430, 385);
+        scale(millPop);
+        setPaperShadow(10, 2, 4, 'rgba(55, 65, 50, 0.22)');
+        noStroke();
+        // 风车塔身
+        fill('#e6ccb2');
+        quad(-22, 0, 22, 0, 14, -95, -14, -95);
+        fill('#ddb892');
+        triangle(-16, -95, 16, -95, 0, -118);
+
+        // 旋转四叶折纸风车叶片
+        let rotSpd = selectedWeatherElems.includes('wind') ? 0.065 : 0.016;
+        windmillAngle += rotSpd;
+        translate(0, -92);
+        rotate(windmillAngle);
+        const bladeCols = ['#ffadad', '#ffd166', '#90dbf4', '#b5e48c'];
+        for (let i = 0; i < 4; i++) {{
+          push();
+          rotate(HALF_PI * i);
+          fill(bladeCols[i]);
+          triangle(0, 0, -12, -52, 4, -52);
+          fill(255, 255, 255, 110);
+          triangle(0, 0, 4, -52, 12, -44);
+          pop();
+        }}
+        fill('#6b6356');
+        circle(0, 0, 10);
+        clearShadow();
+        pop();
+
+        // 7. 实时天气粒子（雨滴 / 蒲公英风絮 / 雷光微粒）
+        updateAndDrawWeatherParticles();
+
+        // 8. 可点击收集的“天空能量晶石”
+        updateAndDrawSkyEnergyOrbs();
+
+        // 9. 底部天气元素组合控制栏
+        if (popT > 0.7) {{
+          drawWeatherControlDock();
+        }}
+      }}
+
+      function updateAndDrawWeatherParticles() {{
+        let hasRain = selectedWeatherElems.includes('rain');
+        let hasWind = selectedWeatherElems.includes('wind');
+
+        if (hasRain && frameCount % 3 === 0) {{
+          weatherParticles.push({{
+            type: 'rain',
+            x: random(180, 720),
+            y: random(150, 200),
+            vx: hasWind ? -2.2 : -0.4,
+            vy: random(5.5, 7.5),
+            alpha: 220
+          }});
+        }}
+        if (hasWind && frameCount % 10 === 0) {{
+          weatherParticles.push({{
+            type: 'fluff',
+            x: 120,
+            y: random(160, 360),
+            vx: random(2.2, 3.8),
+            vy: random(-0.6, 0.4),
+            phase: random(TWO_PI),
+            alpha: 230
+          }});
+        }}
+
+        for (let i = weatherParticles.length - 1; i >= 0; i--) {{
+          let wp = weatherParticles[i];
+          wp.x += wp.vx;
+          wp.y += wp.vy;
+          if (wp.type === 'fluff') {{
+            wp.y += sin(frameCount * 0.08 + wp.phase) * 0.8;
+          }}
+          if (wp.y > 430 || wp.x > width - 60) {{
+            weatherParticles.splice(i, 1);
+            continue;
+          }}
+
+          push();
+          translate(wp.x, wp.y);
+          noStroke();
+          if (wp.type === 'rain') {{
+            rotate(hasWind ? 0.28 : 0.05);
+            fill(activeComboWeather === 'thunder_glow' ? '#ffd166' : '#62b6cb');
+            triangle(0, -7, -3.5, 2, 0, 6);
+            fill('#bee9e8');
+            triangle(0, -7, 3.5, 2, 0, 6);
+          }} else {{
+            fill(255, 252, 240, wp.alpha);
+            circle(0, 0, 7);
+          }}
+          pop();
+        }}
+      }}
+
+      function updateAndDrawSkyEnergyOrbs() {{
+        // 定时也会自然飘落一颗天空能量晶石供收集
+        if (bookMode === "WEATHER" && skyEnergyOrbs.length < 3 && frameCount % 180 === 0) {{
+          skyEnergyOrbs.push({{
+            x: random(200, 660),
+            y: 95,
+            vy: 0.55,
+            phase: random(TWO_PI),
+            collected: false
+          }});
+        }}
+
+        for (let i = skyEnergyOrbs.length - 1; i >= 0; i--) {{
+          let orb = skyEnergyOrbs[i];
+          if (orb.collected) {{
+            orb.x = lerp(orb.x, 85, 0.16);
+            orb.y = lerp(orb.y, 31, 0.16);
+            if (dist(orb.x, orb.y, 85, 31) < 16) {{
+              skyEnergyOrbs.splice(i, 1);
+              continue;
+            }}
+          }} else {{
+            orb.y += orb.vy;
+            orb.x += sin(frameCount * 0.04 + orb.phase) * 0.8;
+            if (orb.y > 410) orb.y = 410;
+          }}
+
+          push();
+          translate(orb.x, orb.y);
+          let pulse = sin(frameCount * 0.1 + orb.phase) * 4;
+          noStroke();
+          fill(255, 243, 176, 95);
+          circle(0, 0, 30 + pulse);
+
+          // 菱形折纸天空能量晶石
+          fill('#ffd166');
+          triangle(0, -11, -8, 0, 0, 11);
+          fill('#fff3b0');
+          triangle(0, -11, 8, 0, 0, 11);
+          pop();
+        }}
+      }}
+
+      function drawWeatherControlDock() {{
+        for (let btn of WEATHER_BUTTONS) {{
+          let active = selectedWeatherElems.includes(btn.id);
+          push();
+          translate(btn.x, btn.y);
+          setPaperShadow(8, 1, 3, 'rgba(60, 50, 40, 0.16)');
+          noStroke();
+          fill(active ? '#ffd166' : '#faf5eb');
+          rectMode(CENTER);
+          rect(0, 0, 102, 36, 18);
+          clearShadow();
+
+          fill(active ? '#4a4238' : '#6b6356');
+          textAlign(CENTER, CENTER);
+          textSize(13);
+          text(btn.label, 0, 1);
+          pop();
+        }}
+
+        if (comboBannerTimer > 0 && comboBannerText) {{
+          comboBannerTimer--;
+          push();
+          noStroke();
+          fill(250, 245, 235, 225);
+          rectMode(CENTER);
+          rect(width / 2, 72, 420, 32, 16);
+          fill('#6b6356');
+          textAlign(CENTER, CENTER);
+          textSize(12);
+          text(comboBannerText, width / 2, 73);
+          pop();
+        }}
+      }}
+
+      // ================== 通用辅助与顶部状态栏 ==================
+      function drawTopHUD() {{
+        let hy = 16;
+        let hh = 30;
+
+        if (bookMode === "LIVING" || bookMode === "TURNING_TO_LIVING") {{
+          if (harvestedFlowerCount > 0 || harvestedMushroomCount > 0) {{
+            push();
+            let bw = 122;
+            setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+            noStroke();
+            fill(250, 245, 235, 225);
+            rect(18, hy, bw, hh, 15);
+            clearShadow();
+
+            fill('#6b6356');
+            textAlign(CENTER, CENTER);
+            textSize(11.5);
+            text(`🌸 ${{harvestedFlowerCount}}   🍄 ${{harvestedMushroomCount}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
+            pop();
+          }}
+        }} else {{
+          // Weather World 左上角：天空能量收集计数器
+          push();
+          let bw = 146;
+          setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+          noStroke();
+          fill(250, 245, 235, 225);
+          rect(18, hy, bw, hh, 15);
+          clearShadow();
+
+          fill('#6b6356');
+          textAlign(CENTER, CENTER);
+          textSize(12);
+          text(`✨ 天空能量 : ${{skyEnergyCount}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
+          pop();
+        }}
+
+        // 右上角静音开关
+        push();
+        let bx = width - 104;
+        let by = 16;
+        let bw = 88;
+        let bh = 30;
+        setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+        noStroke();
+        fill(250, 245, 235, 225);
+        rect(bx, by, bw, bh, 15);
+        clearShadow();
+
+        fill('#6b6356');
+        textAlign(CENTER, CENTER);
+        textSize(12);
+        text(soundEnabled ? "🔊 音效已开" : "🔇 已静音", bx + bw / 2, by + bh / 2 + 1);
+        pop();
+      }}
+
       function getClickedRipePlant(px, py) {{
         let closest = null;
         let minDist = 24;
@@ -512,11 +1175,10 @@ def render():
 
       function spawnHarvestBurst(x, y, kind, variant) {{
         if (kind === 'flower') {{
-          // 摘花瞬间爆散 5 片对应花色的折纸小花瓣
           const flowerPalettes = [
-            ['#ffafcc', '#ffc8dd'], // 粉花
-            ['#ffd166', '#ffe699'], // 黄花
-            ['#90dbf4', '#bde0fe']  // 蓝花
+            ['#ffafcc', '#ffc8dd'],
+            ['#ffd166', '#ffe699'],
+            ['#90dbf4', '#bde0fe']
           ];
           let cols = flowerPalettes[variant % flowerPalettes.length];
           for (let i = 0; i < 5; i++) {{
@@ -536,7 +1198,6 @@ def render():
             }});
           }}
         }} else {{
-          // 采蘑菇瞬间菌褶喷出 7 颗金色孢子星尘
           for (let i = 0; i < 7; i++) {{
             let ang = random(-PI, 0);
             let spd = random(0.8, 2.1);
@@ -546,7 +1207,7 @@ def render():
               y: y + 4,
               vx: cos(ang) * spd,
               vy: sin(ang) * spd - 0.5,
-              gravity: -0.015, // 孢子轻盈向上漂浮
+              gravity: -0.015,
               size: random(4, 6.5),
               color: random(['#ffd166', '#fff3b0', '#f4a261']),
               alpha: 255
@@ -579,13 +1240,11 @@ def render():
           if (pt.type === 'petal') {{
             pt.rot += pt.rotSpeed;
             rotate(pt.rot);
-            // 折纸水滴形花瓣
             triangle(0, -6, -4, 1, 0, 5);
             c.setAlpha(pt.alpha * 0.82);
             fill(c);
             triangle(0, -6, 4, 1, 0, 5);
           }} else {{
-            // 发光孢子微粒
             circle(0, 0, pt.size);
             fill(255, 255, 255, pt.alpha * 0.75);
             circle(0, 0, pt.size * 0.45);
@@ -599,11 +1258,9 @@ def render():
         let imgList = p.kind === 'flower' ? flowerImgs : mushroomImgs;
         let img = imgList.length > 0 ? imgList[p.variant % imgList.length] : null;
 
-        // 1. 触发花瓣或孢子粒子爆散 + 脚下草叶微尘波纹
         spawnHarvestBurst(p.x, startY, p.kind, p.variant);
         ripples.push(new PaperRipple(p.x, p.y));
 
-        // 2. 抛物线弧线飞向花仙子
         harvestedItems.push({{
           startX: p.x,
           startY: startY,
@@ -625,14 +1282,12 @@ def render():
           playHarvestSound(true);
         }}
 
-        // 3. 每采满 5 份收获触发一次星尘花环庆贺
         let totalHarvested = harvestedFlowerCount + harvestedMushroomCount;
         if (totalHarvested > 0 && totalHarvested % 5 === 0) {{
           fairyBurstRing = 1.0;
           playMilestoneFanfare();
         }}
 
-        // 4. 采摘后花朵/蘑菇回到嫩芽/菌丝环状态，并记录刚被采摘的留痕时间
         p.bloom = 0.08;
         p.targetBloom = 0.08;
         p.harvestedFade = 1.0;
@@ -643,14 +1298,12 @@ def render():
           let item = harvestedItems[i];
           item.t++;
           let prog = constrain(item.t / item.duration, 0, 1);
-          // 抛物线飞向花仙子身边
           let arcLift = sin(prog * PI) * 48;
           item.x = lerp(item.startX, sprite.x, prog);
           item.y = lerp(item.startY, sprite.y - 6, prog) - arcLift;
           item.rot += 0.14;
 
           if (prog >= 1) {{
-            // 融入花仙子身边的迷你环绕花环（最多保留最近 4 个挂饰）
             orbitWreathItems.push({{
               kind: item.kind,
               variant: item.variant,
@@ -681,7 +1334,6 @@ def render():
         }}
       }}
 
-      // ================== 荷花池粉白折纸睡莲 ==================
       function bloomNextWaterLily() {{
         for (let lily of waterLilies) {{
           if (lily.targetBloom < 1) {{
@@ -725,7 +1377,6 @@ def render():
         }}
       }}
 
-      // ================== 摇晃大树飘落折纸树叶 ==================
       function spawnTreeLeaves(cx, cy) {{
         playLeafRustleSound();
         const leafCols = ['#8ac926', '#b5e48c', '#ffd166', '#99d98c'];
@@ -775,7 +1426,6 @@ def render():
         }}
       }}
 
-      // ================== 小鸟对唱与飘出剪纸音符 ==================
       function getClickedBird(px, py) {{
         for (let b of birds) {{
           if (dist(px, py, b.x, b.y - 14) < 26) return b;
@@ -835,46 +1485,6 @@ def render():
         }}
       }}
 
-      function drawTopHUD() {{
-        let hy = 16;
-        let hh = 30;
-
-        // 1. 左上角花篮采摘计数徽章
-        if (harvestedFlowerCount > 0 || harvestedMushroomCount > 0) {{
-          push();
-          let bw = 122;
-          setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
-          noStroke();
-          fill(250, 245, 235, 225);
-          rect(18, hy, bw, hh, 15);
-          clearShadow();
-
-          fill('#6b6356');
-          textAlign(CENTER, CENTER);
-          textSize(11.5);
-          text(`🌸 ${{harvestedFlowerCount}}   🍄 ${{harvestedMushroomCount}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
-          pop();
-        }}
-
-        // 2. 右上角静音开关
-        push();
-        let bx = width - 104;
-        let by = 16;
-        let bw = 88;
-        let bh = 30;
-        setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
-        noStroke();
-        fill(250, 245, 235, 225);
-        rect(bx, by, bw, bh, 15);
-        clearShadow();
-
-        fill('#6b6356');
-        textAlign(CENTER, CENTER);
-        textSize(12);
-        text(soundEnabled ? "🔊 音效已开" : "🔇 已静音", bx + bw / 2, by + bh / 2 + 1);
-        pop();
-      }}
-
       function drawPondHint() {{
         if (sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && !sprite.bucketHasWater) {{
           push();
@@ -897,6 +1507,36 @@ def render():
 
       function updateCursorStyle() {{
         if (isPointOnMuteButton(mouseX, mouseY)) {{
+          cursor(HAND);
+          return;
+        }}
+        if (bookMode === "TURNING_TO_WEATHER" || bookMode === "TURNING_TO_LIVING") {{
+          cursor(ARROW);
+          return;
+        }}
+        if (bookMode === "WEATHER") {{
+          if (isPointOnBackCurl(mouseX, mouseY)) {{
+            cursor(HAND);
+            return;
+          }}
+          for (let btn of WEATHER_BUTTONS) {{
+            if (abs(mouseX - btn.x) <= 52 && abs(mouseY - btn.y) <= 20) {{
+              cursor(HAND);
+              return;
+            }}
+          }}
+          for (let orb of skyEnergyOrbs) {{
+            if (!orb.collected && dist(mouseX, mouseY, orb.x, orb.y) < 22) {{
+              cursor(HAND);
+              return;
+            }}
+          }}
+          cursor(ARROW);
+          return;
+        }}
+
+        // Living World 指针判断
+        if (isPointOnPageCurl(mouseX, mouseY)) {{
           cursor(HAND);
           return;
         }}
@@ -926,6 +1566,45 @@ def render():
         if (isPointOnMuteButton(mouseX, mouseY)) {{
           soundEnabled = !soundEnabled;
           if (soundEnabled) playChimeNote(659.25, 0.3, 0.08);
+          return;
+        }}
+
+        // 1. Weather World 模式下的点击交互
+        if (bookMode === "WEATHER") {{
+          if (isPointOnBackCurl(mouseX, mouseY)) {{
+            bookMode = "TURNING_TO_LIVING";
+            pageTurnProgress = 0;
+            playPageFlipSound();
+            return;
+          }}
+          // 点击收集天空能量晶石
+          for (let orb of skyEnergyOrbs) {{
+            if (!orb.collected && dist(mouseX, mouseY, orb.x, orb.y) < 24) {{
+              orb.collected = true;
+              skyEnergyCount++;
+              playChimeNote(880.0, 0.45, 0.10, 0);
+              playChimeNote(1174.66, 0.55, 0.10, 0.08);
+              return;
+            }}
+          }}
+          // 点击天气元素组合按钮
+          for (let btn of WEATHER_BUTTONS) {{
+            if (abs(mouseX - btn.x) <= 52 && abs(mouseY - btn.y) <= 20) {{
+              toggleWeatherElement(btn.id);
+              return;
+            }}
+          }}
+          return;
+        }}
+
+        if (bookMode !== "LIVING") return;
+
+        // 2. 点击右下角折角书签 -> 触发立体书 3D 翻页转场前往 Weather World
+        if (isPointOnPageCurl(mouseX, mouseY)) {{
+          bookMode = "TURNING_TO_WEATHER";
+          pageTurnProgress = 0;
+          popupProgress = 0;
+          playPageFlipSound();
           return;
         }}
 
@@ -1347,7 +2026,6 @@ def render():
             circle(t.x, t.y, map(t.alpha, 0, 175, 2, 7));
           }}
 
-          // 每采满 5 份收获时的星尘庆贺光环
           if (fairyBurstRing > 0.01) {{
             fairyBurstRing = lerp(fairyBurstRing, 0, 0.04);
             noFill();
@@ -1357,7 +2035,6 @@ def render():
             noStroke();
           }}
 
-          // 近期采摘的花朵/蘑菇化作迷你花环在花仙子身旁轻盈环绕一会儿
           for (let i = orbitWreathItems.length - 1; i >= 0; i--) {{
             let w = orbitWreathItems[i];
             w.life--;
@@ -1514,7 +2191,7 @@ def render():
           this.bloom = 0.05;
           this.targetBloom = 0.05;
           this.stemHeight = kind === 'flower' ? random(14, 38) : 0;
-          this.harvestedFade = 0; // 刚被采摘后的菌丝/嫩叶留痕渐隐
+          this.harvestedFade = 0;
         }}
         update() {{
           this.bloom = lerp(this.bloom, this.targetBloom, 0.065);
@@ -1532,7 +2209,6 @@ def render():
               noStroke();
               fill('#efe8d8');
               ellipse(0, 0, 12, 6);
-              // 刚采走蘑菇后留下浅米色小菌丝环
               if (this.harvestedFade > 0.02) {{
                 noFill();
                 stroke(245, 240, 225, this.harvestedFade * 190);
@@ -1617,7 +2293,6 @@ def render():
         }}
       }}
 
-      // ================== 折纸蝴蝶（始终围绕花朵轻盈飞舞） ==================
       class OrigamiButterfly {{
         constructor(x, y) {{
           this.x = x;
