@@ -23,10 +23,10 @@ def load_asset_data_uri(filenames: list[str]) -> str:
 
 
 def render():
-    """Display the Living World module with Custom Dusk Assets (Moon, Star, Firefly, Owl) & Pop-up Page Turn."""
+    """Display the Living World module with Custom Dusk Assets & Firefly Lantern Catching."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "Read the Flower Fairy's guide to begin: toggle Day/Dusk lighting to meet the night owl, moon, stars & fireflies, craft wonders at the workbench, and flip the corner to enter Weather World!"
+        "Read the Flower Fairy's guide to begin: toggle Day/Dusk lighting to catch 5 fireflies and light the fairy's lantern, craft wonders at the workbench, and flip the corner to enter Weather World!"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -110,8 +110,14 @@ def render():
 
       // ================== Day / Dusk Lighting & Night Elements ==================
       let isDuskMode = false;
-      let duskBlend = 0; // Smoothly lerps between 0 (Day) and 1 (Dusk)
+      let duskBlend = 0;
       let fireflies = [];
+      let caughtFirefliesAnim = [];
+      let fireflyCount = 0;
+      const FIREFLY_TARGET = 5;
+      let lanternLit = false;
+      let lanternGlowLevel = 0;
+
       let nightStars = [];
       let owlState = {{
         x: 375,
@@ -119,7 +125,6 @@ def render():
         bobTimer: 0
       }};
 
-      // ================== Paper Parallax & Breeze Wave ==================
       let parallaxX = 0;
       let breezeWaveX = -200;
 
@@ -136,8 +141,8 @@ def render():
           body: "Click blooming flowers, mushrooms & pond water to craft:\n🌸 + 🌸 = 💐 Floral Wreath (worn on the fairy's head)\n🌸 + 💧 = 🦋 Butterfly Swarm (summons more butterflies)\n🍄 + 🍄 = 🍄 Giant Mushroom (boosts fairy stamina & speed)"
         }},
         {{
-          title: "📖 Hidden Wonders & Pop-up Flip (3/3)",
-          body: "Tap the frog, birds, tree crowns & stones, or switch Day/Dusk\nmode at the top right to meet the moon, stars, owl & fireflies.\nClick the bottom-right page curl anytime to visit Weather World!"
+          title: "📖 Dusk Mode & Firefly Lantern (3/3)",
+          body: "Switch to 🌙 Dusk at the top right to meet the owl & fireflies.\nClick 5 glowing fireflies to light up the fairy's hand lantern!\nClick the bottom-right page curl anytime to visit Weather World."
         }}
       ];
 
@@ -266,6 +271,18 @@ def render():
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + duration + 0.02);
+      }}
+
+      function playFireflyCatchSound(count) {{
+        const scale = [659.25, 783.99, 880.00, 1046.50, 1318.51];
+        let baseFreq = scale[min(count - 1, scale.length - 1)];
+        playChimeNote(baseFreq, 0.38, 0.09, 0);
+        playChimeNote(baseFreq * 1.25, 0.45, 0.08, 0.06);
+      }}
+
+      function playLanternLitSound() {{
+        const chord = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        chord.forEach((f, idx) => playChimeNote(f, 0.75, 0.095, idx * 0.065));
       }}
 
       function playOwlHootSound() {{
@@ -447,6 +464,29 @@ def render():
         return dist(px, py, ox, oy) < 28;
       }}
 
+      function getFireflyScreenPos(ff) {{
+        return {{
+          x: ff.x + cos(frameCount * ff.speed + ff.phase) * ff.rx - parallaxX * 4.0,
+          y: ff.y + sin(frameCount * ff.speed * 1.3 + ff.phase) * ff.ry
+        }};
+      }}
+
+      function getClickedFirefly(px, py) {{
+        if (duskBlend <= 0.45) return null;
+        let closest = null;
+        let minDist = 34;
+        for (let ff of fireflies) {{
+          if (ff.respawnTimer > 0) continue;
+          let pos = getFireflyScreenPos(ff);
+          let d = dist(px, py, pos.x, pos.y);
+          if (d < minDist) {{
+            minDist = d;
+            closest = ff;
+          }}
+        }}
+        return closest;
+      }}
+
       function isPointOnMuteButton(px, py) {{
         return px >= width - 114 && px <= width - 16 && py >= 16 && py <= 46;
       }}
@@ -485,6 +525,21 @@ def render():
         return abs(px - bx) <= 56 && abs(py - by) <= 18;
       }}
 
+      // Remove black background from lantern image automatically in browser
+      function stripBlackBackground(img) {{
+        if (!img) return;
+        img.loadPixels();
+        for (let i = 0; i < img.pixels.length; i += 4) {{
+          let r = img.pixels[i];
+          let g = img.pixels[i + 1];
+          let b = img.pixels[i + 2];
+          if (r < 28 && g < 28 && b < 28) {{
+            img.pixels[i + 3] = 0;
+          }}
+        }}
+        img.updatePixels();
+      }}
+
       function preload() {{
         if (BG_IMG_DATA) bgImg = loadImage(BG_IMG_DATA);
         if (FAIRY_IMG_DATA) fairyImg = loadImage(FAIRY_IMG_DATA);
@@ -497,7 +552,9 @@ def render():
         if (STAR_IMG_DATA) starImg = loadImage(STAR_IMG_DATA);
         if (FIREFLY_IMG_DATA) fireflyImg = loadImage(FIREFLY_IMG_DATA);
         if (OWL_IMG_DATA) owlImg = loadImage(OWL_IMG_DATA);
-        if (LANTERN_IMG_DATA) lanternImg = loadImage(LANTERN_IMG_DATA);
+        if (LANTERN_IMG_DATA) {{
+          lanternImg = loadImage(LANTERN_IMG_DATA, () => stripBlackBackground(lanternImg));
+        }}
 
         for (let uri of FLOWER_URIS) {{
           if (uri && uri.length > 0) flowerImgs.push(loadImage(uri));
@@ -530,13 +587,14 @@ def render():
 
         for (let i = 0; i < 12; i++) {{
           fireflies.push({{
-            x: random(70, width - 70),
-            y: random(255, 495),
+            x: random(75, width - 75),
+            y: random(255, 485),
             phase: random(TWO_PI),
             speed: random(0.014, 0.028),
             rx: random(18, 40),
             ry: random(10, 22),
-            scale: random(0.75, 1.15)
+            scale: random(0.85, 1.15),
+            respawnTimer: 0
           }});
         }}
 
@@ -620,6 +678,9 @@ def render():
 
       function draw() {{
         duskBlend = lerp(duskBlend, isDuskMode ? 1.0 : 0.0, 0.05);
+
+        let targetGlow = lanternLit ? 1.0 : (fireflyCount / FIREFLY_TARGET) * 0.42;
+        lanternGlowLevel = lerp(lanternGlowLevel, targetGlow, 0.08);
 
         let normMouseX = constrain((mouseX - width / 2) / (width / 2), -1, 1);
         parallaxX = lerp(parallaxX, introModalActive ? 0 : normMouseX, 0.06);
@@ -715,6 +776,93 @@ def render():
         }}
 
         updateCursorStyle();
+      }}
+
+      // ================== Catch Firefly & Fly to Fairy's Lantern ==================
+      function catchFirefly(ff) {{
+        let pos = getFireflyScreenPos(ff);
+        ff.respawnTimer = 240;
+
+        for (let i = 0; i < 6; i++) {{
+          let ang = (TWO_PI / 6) * i;
+          harvestParticles.push({{
+            type: 'spore',
+            x: pos.x,
+            y: pos.y,
+            vx: cos(ang) * 1.4,
+            vy: sin(ang) * 1.4,
+            gravity: -0.01,
+            size: random(4, 6),
+            color: '#fff3b0',
+            alpha: 245
+          }});
+        }}
+
+        caughtFirefliesAnim.push({{
+          startX: pos.x,
+          startY: pos.y,
+          x: pos.x,
+          y: pos.y,
+          t: 0,
+          duration: 28
+        }});
+
+        if (!lanternLit) {{
+          fireflyCount = min(FIREFLY_TARGET, fireflyCount + 1);
+          playFireflyCatchSound(fireflyCount);
+
+          if (fireflyCount >= FIREFLY_TARGET) {{
+            lanternLit = true;
+            fairyBurstRing = 1.0;
+            playLanternLitSound();
+            showCraftToast("🏮 Lantern Lit! 5 fireflies illuminate the fairy's hand lantern!");
+          }} else {{
+            showCraftToast(`✨ Caught a firefly! Lantern: ${{fireflyCount}}/${{FIREFLY_TARGET}}`);
+          }}
+        }} else {{
+          playFireflyCatchSound(FIREFLY_TARGET);
+          fairyBurstRing = 0.65;
+          showCraftToast("🏮 The fairy's lantern shines warmly in the night!");
+        }}
+      }}
+
+      function updateAndDrawCaughtFireflies() {{
+        for (let i = caughtFirefliesAnim.length - 1; i >= 0; i--) {{
+          let cf = caughtFirefliesAnim[i];
+          cf.t++;
+          let prog = constrain(cf.t / cf.duration, 0, 1);
+          let lanternPos = sprite.getLanternWorldPos();
+          let arcLift = sin(prog * PI) * 42;
+
+          cf.x = lerp(cf.startX, lanternPos.x, prog);
+          cf.y = lerp(cf.startY, lanternPos.y, prog) - arcLift;
+
+          if (prog >= 1) {{
+            caughtFirefliesAnim.splice(i, 1);
+            continue;
+          }}
+
+          push();
+          translate(cf.x, cf.y);
+          let ctx = drawingContext;
+          let r = 20 * (1 - prog * 0.4);
+          let grad = ctx.createRadialGradient(0, 0, 1, 0, 0, r);
+          grad.addColorStop(0, 'rgba(255, 252, 190, 0.95)');
+          grad.addColorStop(0.5, 'rgba(225, 255, 130, 0.45)');
+          grad.addColorStop(1, 'rgba(225, 255, 130, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(0, 0, r, 0, TWO_PI);
+          ctx.fill();
+
+          if (fireflyImg) {{
+            imageMode(CENTER);
+            let fH = 22 * (1 - prog * 0.45);
+            let fW = fH * (fireflyImg.width / fireflyImg.height);
+            image(fireflyImg, 0, 0, fW, fH);
+          }}
+          pop();
+        }}
       }}
 
       // ================== Pre-start Full Guide Modal ==================
@@ -890,7 +1038,6 @@ def render():
       function drawDuskSkyAndPondReflection() {{
         if (duskBlend <= 0.01) return;
 
-        // 1. Custom Moon rising in the upper-left sky
         push();
         let moonY = lerp(125, 82, duskBlend);
         translate(158 - parallaxX * 1.5, moonY);
@@ -911,7 +1058,6 @@ def render():
         clearShadow();
         pop();
 
-        // 2. Custom Twinkling Stars in the night sky
         for (let st of nightStars) {{
           let twinkle = 0.78 + sin(frameCount * 0.07 + st.p) * 0.22;
           push();
@@ -934,7 +1080,6 @@ def render():
           pop();
         }}
 
-        // 3. Soft shimmering moon reflection on the lotus pond surface
         push();
         translate(POND_X - 18 - parallaxX * 2.5, POND_Y + 6);
         noStroke();
@@ -945,11 +1090,10 @@ def render():
         pop();
       }}
 
-      // ================== Night Owl & Custom Fireflies with Tail Glow ==================
+      // ================== Night Owl & Catchable Fireflies ==================
       function drawDuskAtmosphereOverlay() {{
         if (duskBlend <= 0.01) return;
 
-        // 1. Multiply twilight tint over background
         push();
         blendMode(MULTIPLY);
         noStroke();
@@ -958,7 +1102,6 @@ def render():
         rect(0, 0, width, height);
         pop();
 
-        // 2. Night Owl perched on the middle tree branch
         push();
         let ox = owlState.x - parallaxX * 2.5;
         let oy = owlState.y + lerp(16, 0, duskBlend);
@@ -995,15 +1138,33 @@ def render():
         clearShadow();
         pop();
 
-        // 3. Custom Fireflies drifting across the meadow with soft radial tail glow
         for (let ff of fireflies) {{
-          let fx = ff.x + cos(frameCount * ff.speed + ff.phase) * ff.rx - parallaxX * 4.0;
-          let fy = ff.y + sin(frameCount * ff.speed * 1.3 + ff.phase) * ff.ry;
+          if (ff.respawnTimer > 0) {{
+            ff.respawnTimer--;
+            if (ff.respawnTimer === 0) {{
+              ff.x = random(75, width - 75);
+              ff.y = random(255, 485);
+            }}
+            continue;
+          }}
+
+          let pos = getFireflyScreenPos(ff);
           let pulse = sin(frameCount * 0.1 + ff.phase * 2) * 0.5 + 0.5;
+          let isHovered = !introModalActive && dist(mouseX, mouseY, pos.x, pos.y) < 34;
 
           push();
-          translate(fx, fy);
-          scale(ff.scale * (0.92 + pulse * 0.14));
+          translate(pos.x, pos.y);
+
+          if (isHovered && duskBlend > 0.45) {{
+            noFill();
+            stroke(255, 245, 180, duskBlend * 195);
+            strokeWeight(1.5);
+            drawingContext.setLineDash([4, 4]);
+            circle(0, 0, 42 + sin(frameCount * 0.15) * 3);
+            drawingContext.setLineDash([]);
+          }}
+
+          scale(ff.scale * (isHovered ? 1.18 : (0.92 + pulse * 0.14)));
           rotate(sin(frameCount * 0.06 + ff.phase) * 0.18);
 
           let ctx = drawingContext;
@@ -1225,7 +1386,6 @@ def render():
       }}
 
       function renderLivingWorld(alphaScale) {{
-        // Far Layer (Background with slight parallax shift)
         if (bgImg) {{
           imageMode(CORNER);
           image(bgImg, -10 - parallaxX * 2.5, 0, width + 20, height);
@@ -1233,10 +1393,8 @@ def render():
           background('#f7f2e7');
         }}
 
-        // Moon, Stars & Pond Moon Reflection
         drawDuskSkyAndPondReflection();
 
-        // Mid Layer (Pond, Stepping Stones, Water Lilies)
         push();
         translate(-parallaxX * 2.5, 0);
         drawDoorPortal();
@@ -1254,7 +1412,6 @@ def render():
         frog.display();
         pop();
 
-        // Foreground Layer (Grass Blades & Plants with stronger parallax depth)
         push();
         translate(-parallaxX * 4.5, 0);
         for (let g of grassBlades) {{
@@ -1321,13 +1478,14 @@ def render():
         updateAndDrawFallingLeaves();
         updateAndDrawMusicNotes();
 
-        // Dusk Twilight Tint, Night Owl & Fireflies
         drawDuskAtmosphereOverlay();
+        updateAndDrawCaughtFireflies();
 
         let pourInterval = miracleEffects.staminaBoostTimer > 0 ? 4 : 7;
         if (!introModalActive && bookMode === "LIVING" && sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % pourInterval === 0) {{
           if (!isPointInPond(mouseX, mouseY) &&
               !frog.isPointOnFrog(mouseX, mouseY) &&
+              !getClickedFirefly(mouseX, mouseY) &&
               !getClickedOwl(mouseX, mouseY) &&
               !getClickedBird(mouseX, mouseY) &&
               !getClickedTreeCrown(mouseX, mouseY) &&
@@ -1692,7 +1850,6 @@ def render():
         let hy = 16;
         let hh = 30;
 
-        // 1. Craft toast pill
         if (craftToastTimer > 0 && craftToastText && bookMode === "LIVING") {{
           craftToastTimer--;
           push();
@@ -1700,19 +1857,34 @@ def render():
           noStroke();
           fill(250, 245, 235, 238);
           rectMode(CENTER);
-          rect(width / 2 - 90, 31, 360, 32, 16);
+          rect(width / 2 - 45, 31, 320, 32, 16);
           clearShadow();
 
           fill('#5c5346');
           textAlign(CENTER, CENTER);
           textSize(11);
-          text(craftToastText, width / 2 - 90, 31.5);
+          text(craftToastText, width / 2 - 45, 31.5);
           pop();
         }}
 
-        // 2. Top-left status badge
         if (bookMode === "LIVING" || bookMode === "TURNING_TO_LIVING") {{
-          if (miracleEffects.staminaBoostTimer > 0) {{
+          if (isDuskMode || fireflyCount > 0) {{
+            push();
+            let bw = 136;
+            setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+            noStroke();
+            fill(lanternLit ? '#fff3b0' : 'rgba(250, 245, 235, 0.90)');
+            rect(18, hy, bw, hh, 15);
+            clearShadow();
+
+            fill(lanternLit ? '#6b5b2b' : '#5c5346');
+            textAlign(CENTER, CENTER);
+            textSize(11.5);
+            textStyle(lanternLit ? BOLD : NORMAL);
+            text(lanternLit ? "🏮 Lantern Lit!" : `🏮 Lantern: ${{fireflyCount}}/${{FIREFLY_TARGET}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
+            textStyle(NORMAL);
+            pop();
+          }} else if (miracleEffects.staminaBoostTimer > 0) {{
             push();
             let bw = 132;
             setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
@@ -1743,7 +1915,6 @@ def render():
           pop();
         }}
 
-        // 3. Top-right "🌙 Dusk / ☀️ Day" Toggle
         if (!introModalActive && bookMode === "LIVING") {{
           push();
           let dx = width - 302;
@@ -1763,7 +1934,6 @@ def render():
           pop();
         }}
 
-        // 4. Top-right "💬 Guide" button
         if (!introModalActive && bookMode === "LIVING") {{
           push();
           let hx = width - 208;
@@ -1783,7 +1953,6 @@ def render():
           pop();
         }}
 
-        // 5. Top-right Sound toggle
         push();
         let bx = width - 114;
         let by = 16;
@@ -2205,6 +2374,7 @@ def render():
           return;
         }}
         if (frog.isPointOnFrog(mouseX, mouseY) ||
+            getClickedFirefly(mouseX, mouseY) ||
             getClickedOwl(mouseX, mouseY) ||
             getClickedBird(mouseX, mouseY) ||
             getClickedTreeCrown(mouseX, mouseY) ||
@@ -2297,7 +2467,12 @@ def render():
           return;
         }}
 
-        // Night Owl interaction in Dusk mode
+        let hitFirefly = getClickedFirefly(mouseX, mouseY);
+        if (hitFirefly) {{
+          catchFirefly(hitFirefly);
+          return;
+        }}
+
         if (getClickedOwl(mouseX, mouseY)) {{
           owlState.bobTimer = 26;
           playOwlHootSound();
@@ -2632,6 +2807,9 @@ def render():
         getBucketWorldPos() {{
           return {{ x: this.x - 24, y: this.y + 20 }};
         }}
+        getLanternWorldPos() {{
+          return {{ x: this.x + 26, y: this.y + 22 }};
+        }}
         isPointOnBucket(px, py) {{
           if (!this.hasBucket) return false;
           let pos = this.getBucketWorldPos();
@@ -2709,7 +2887,7 @@ def render():
             this.targetY = constrain(mouseY, 80, 395);
           }}
 
-          let followEase = miracleEffects.staminaBoostTimer > 0 ? 0.16 : 0.09;
+          let followEase = (miracleEffects.staminaBoostTimer > 0 || lanternLit) ? 0.15 : 0.09;
           let hoverY = sin(frameCount * 0.07) * 5;
           let prevX = this.x;
           this.x = lerp(this.x, this.targetX, followEase);
@@ -2805,7 +2983,7 @@ def render():
           push();
           translate(this.x, this.y);
           rotate(constrain(this.vx * 0.03, -0.22, 0.22));
-          let flapSpd = miracleEffects.staminaBoostTimer > 0 ? 0.34 : 0.22;
+          let flapSpd = (miracleEffects.staminaBoostTimer > 0 || lanternLit) ? 0.34 : 0.22;
           let breathX = 1 + sin(frameCount * flapSpd) * 0.038;
           scale(this.scaleVal * breathX, this.scaleVal);
           setPaperShadow(12, 3, 6, 'rgba(55, 65, 50, 0.26)');
@@ -2854,6 +3032,47 @@ def render():
               stroke('#6b655c');
               strokeWeight(1.2);
               quad(-9, 0, 9, 0, 6, 18, -6, 18);
+            }}
+            pop();
+          }}
+
+          // ================== Fairy Hand-Held Custom Lantern ==================
+          if (duskBlend > 0.05 || fireflyCount > 0) {{
+            let visAlpha = max(duskBlend, fireflyCount > 0 ? 1 : 0);
+            push();
+            translate(26, 12);
+            rotate(-constrain(this.vx * 0.06, -0.35, 0.35) + sin(frameCount * 0.09) * 0.08);
+            scale(visAlpha);
+
+            if (lanternGlowLevel > 0.02) {{
+              let ctx = drawingContext;
+              let pulse = sin(frameCount * 0.12) * 6;
+              let maxR = (lanternLit ? 72 : 36) + pulse;
+              let grad = ctx.createRadialGradient(0, 16, 2, 0, 16, maxR);
+              let cAlpha = (lanternLit ? 0.68 : 0.30) * lanternGlowLevel;
+              let mAlpha = (lanternLit ? 0.30 : 0.12) * lanternGlowLevel;
+              grad.addColorStop(0, `rgba(255, 248, 175, ${{cAlpha.toFixed(3)}})`);
+              grad.addColorStop(0.45, `rgba(235, 255, 140, ${{mAlpha.toFixed(3)}})`);
+              grad.addColorStop(1, 'rgba(235, 255, 140, 0)');
+              ctx.fillStyle = grad;
+              ctx.beginPath();
+              ctx.arc(0, 16, maxR, 0, TWO_PI);
+              ctx.fill();
+            }}
+
+            if (lanternImg) {{
+              imageMode(CENTER);
+              let lH = 38;
+              let lW = lH * (lanternImg.width / lanternImg.height);
+              let dimVal = lerp(135, 255, lanternLit ? 1.0 : (fireflyCount / FIREFLY_TARGET) * 0.55);
+              tint(dimVal, dimVal, lerp(145, 255, lanternLit ? 1.0 : 0.4), visAlpha * 255);
+              image(lanternImg, 0, 12, lW, lH);
+              noTint();
+            }} else {{
+              noStroke();
+              fill(lerpColor(color('#b8b0a4'), color('#fff6b3'), lanternGlowLevel));
+              rectMode(CENTER);
+              rect(0, 12, 13, 15, 3);
             }}
             pop();
           }}
