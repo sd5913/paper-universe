@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 
 
 def load_asset_data_uri(filenames: list[str]) -> str:
-    """自动查找 assets 文件夹里的指定图片并转为 Base64 格式"""
+    """Locate the specified asset in the assets folder and convert it to a Base64 Data URI."""
     root_dir = Path(__file__).resolve().parent.parent
     for name in filenames:
         candidates = [
@@ -26,7 +26,7 @@ def render():
     """Display the Living World module with Pre-start Guide Modal & Updated Crafting Rules."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "阅读花仙子的玩法指引后即可开始探索：唤醒花仙子、舀水浇花、收集材料合成【繁花花圈】【幻彩蝶群】与【能量大蘑菇】！"
+        "Read the Flower Fairy's guide to begin: wake the fairy, scoop pond water to bloom flowers and mushrooms, craft wonders at the workbench, and turn the pop-up page corner to enter Weather World!"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -47,9 +47,10 @@ def render():
 
     p5_html = f"""
     <!DOCTYPE html>
-    <html lang="zh">
+    <html lang="en">
     <head>
       <meta charset="UTF-8" />
+      <title>Paper Universe - Living World</title>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
       <style>
         html, body {{
@@ -88,25 +89,25 @@ def render():
       let mushroomImgs = [];
       let birdImgs = [];
 
-      // ================== 开场前完整说明弹窗状态 ==================
+      // ================== Pre-start Guide Modal State ==================
       let introModalActive = true;
       let introPageIndex = 0;
       const INTRO_PAGES = [
-        {
-          title: "✨ 欢迎来到折纸生态花园（1/3）",
-          body: "1. 轻敲蘑菇屋的木门，唤醒沉睡的花仙子。\n2. 拾起草地上的小水壶，去蓝色荷花池舀满池水，\n在花苗与蘑菇上方按住鼠标浇灌它们盛开！"
-        },
-        {
-          title: "🌿 自然元素合成工坊（2/3）",
-          body: "点击盛开的花朵、蘑菇与池水收集材料，放入底部工作台：\n🌸 + 🌸 = 💐 花圈（给花仙子戴在头上）\n🌸 + 💧 = 🦋 幻彩蝶群（召唤更多折纸蝴蝶）\n🍄 + 🍄 = 🍄 能量大蘑菇（为花仙子补充元气与速度）"
-        },
-        {
-          title: "📖 彩蛋互动与立体书翻页（3/3）",
-          body: "点一点荷叶小青蛙、树梢小鸟、大树树冠与音符石子，\n探索花园里的隐藏音效与小惊喜；\n随时点击右下角【立体书折角】，翻往云端的天气世界！"
-        }
+        {{
+          title: "✨ Welcome to the Origami Meadow (1/3)",
+          body: "1. Tap the mushroom house door to wake the Flower Fairy.\n2. Pick up the watering can, scoop water from the lotus pond,\nand hold the mouse button over sprouts to make them bloom!"
+        }},
+        {{
+          title: "🌿 Nature Crafting Workbench (2/3)",
+          body: "Click blooming flowers, mushrooms & pond water to craft:\n🌸 + 🌸 = 💐 Floral Wreath (worn on the fairy's head)\n🌸 + 💧 = 🦋 Butterfly Swarm (summons more butterflies)\n🍄 + 🍄 = 🍄 Giant Mushroom (boosts fairy stamina & speed)"
+        }},
+        {{
+          title: "📖 Hidden Wonders & Pop-up Flip (3/3)",
+          body: "Tap the lily-pad frog, perched birds, tree crowns, and\nmusical stepping stones for playful sounds and surprises.\nClick the bottom-right page curl anytime to visit Weather World!"
+        }}
       ];
 
-      // 合成成功后的顶部飘字提示条
+      // Top toast banner after crafting
       let craftToastText = "";
       let craftToastTimer = 0;
 
@@ -135,28 +136,27 @@ def render():
       let orbitWreathItems = [];
       let fairyBurstRing = 0;
 
-      // ================== 剪纸花环工作台（3 种基础元素 + 3 种定制配方） ==================
+      // ================== Crafting Inventory & Recipes ==================
       let inv = {{
-        flower: 2,    // 初始附赠 2 朵花，方便用户读完说明就能直接合成体验
-        mushroom: 2,  // 初始附赠 2 个蘑菇
-        water: 1      // 初始附赠 1 份池水
+        flower: 2,
+        mushroom: 2,
+        water: 1
       }};
       let craftSlots = [];
       let craftAnimTimer = 0;
       let unlockedMiracles = new Set();
 
-      // 定制合成产物状态
       let miracleEffects = {{
-        flowerCrown: false,     // 🌸 + 🌸 -> 花圈戴在花仙子头上
-        staminaBoostTimer: 0,   // 🍄 + 🍄 -> 大蘑菇补充体力（元气光环 + 飞行/浇水加速）
-        bigMushroomAnim: null   // 大蘑菇飞向花仙子喂食的动画对象
+        flowerCrown: false,
+        staminaBoostTimer: 0,
+        bigMushroomAnim: null
       }};
 
       let gardenVitality = 0;
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
 
-      // Weather World 状态
+      // Weather World State
       let selectedWeatherElems = [];
       let activeComboWeather = null;
       let skyEnergyCount = 0;
@@ -354,7 +354,6 @@ def render():
       const POND_X = 195;
       const POND_Y = 382;
 
-      // 底部中央剪纸花环工作台坐标与 3 种核心材料按钮布局
       const WORKBENCH_X = 532;
       const WORKBENCH_Y = 518;
       const CRAFT_ELEM_BTNS = [
@@ -385,11 +384,11 @@ def render():
       }}
 
       function isPointOnMuteButton(px, py) {{
-        return px >= width - 104 && px <= width - 16 && py >= 16 && py <= 46;
+        return px >= width - 114 && px <= width - 16 && py >= 16 && py <= 46;
       }}
 
       function isPointOnHelpButton(px, py) {{
-        return !introModalActive && px >= width - 202 && px <= width - 112 && py >= 16 && py <= 46;
+        return !introModalActive && px >= width - 208 && px <= width - 122 && py >= 16 && py <= 46;
       }}
 
       function isPointOnWorkbench(px, py) {{
@@ -402,6 +401,21 @@ def render():
 
       function isPointOnBackCurl(px, py) {{
         return px <= 125 && py >= height - 115;
+      }}
+
+      // Guide modal Prev / Next button hitboxes (relative to canvas)
+      function isPointOnModalPrevBtn(px, py) {{
+        if (!introModalActive || introPageIndex === 0) return false;
+        let bx = width / 2 - 42;
+        let by = height / 2 - 8 + 68;
+        return abs(px - bx) <= 46 && abs(py - by) <= 18;
+      }}
+
+      function isPointOnModalNextBtn(px, py) {{
+        if (!introModalActive) return false;
+        let bx = width / 2 + 216;
+        let by = height / 2 - 8 + 68;
+        return abs(px - bx) <= 56 && abs(py - by) <= 18;
       }}
 
       function preload() {{
@@ -591,7 +605,7 @@ def render():
         updateCursorStyle();
       }}
 
-      // ================== 开场前完整说明弹窗（严格限制在对话框米白区域内） ==================
+      // ================== Pre-start Full Guide Modal (with Prev & Next buttons) ==================
       function drawPreStartGuideModal() {{
         push();
         noStroke();
@@ -621,42 +635,59 @@ def render():
 
         let page = INTRO_PAGES[introPageIndex];
 
-        // 标题（居中对齐右侧米白区域 x=102, y=-54）
+        // Title
         fill('#4a4238');
         noStroke();
         textAlign(CENTER, CENTER);
-        textSize(14.5);
+        textSize(14);
         textStyle(BOLD);
         text(page.title, 102, -54);
 
-        // 正文（用 rectMode(CENTER) 严格锁定在 355x92 的米白纸张安全区内，绝不溢出边框）
+        // Body text strictly constrained within the parchment area
         textStyle(NORMAL);
         fill('#5c5346');
-        textSize(12);
-        textLeading(20);
+        textSize(11.5);
+        textLeading(19);
         rectMode(CENTER);
-        text(page.body, 102, 4, 355, 92);
+        text(page.body, 102, 2, 355, 92);
 
-        // 底部页码点指示器
-        for (let i = 0; i < INTRO_PAGES.length; i++) {{
-          fill(i === introPageIndex ? '#72ac53' : '#d6ccb8');
-          circle(42 + i * 16, 68, i === introPageIndex ? 8 : 6);
+        // Previous button (shown on pages 2 & 3)
+        if (introPageIndex > 0) {{
+          let prevX = -42;
+          let prevY = 68;
+          setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.16)');
+          fill('#efe6d5');
+          rectMode(CENTER);
+          rect(prevX, prevY, 88, 30, 15);
+          clearShadow();
+
+          fill('#5c5346');
+          textSize(12);
+          textStyle(BOLD);
+          text("◂ Prev", prevX, prevY + 0.5);
+          textStyle(NORMAL);
         }}
 
-        // 右下角翻页 / 开始按钮
-        let btnX = 168;
+        // Center pagination dots
+        for (let i = 0; i < INTRO_PAGES.length; i++) {{
+          fill(i === introPageIndex ? '#72ac53' : '#d6ccb8');
+          circle(72 + i * 16, 68, i === introPageIndex ? 8 : 6);
+        }}
+
+        // Next / Explore button
+        let btnX = 216;
         let btnY = 68;
         let isLast = introPageIndex === INTRO_PAGES.length - 1;
         setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.2)');
         fill(isLast ? '#72ac53' : '#ffd166');
         rectMode(CENTER);
-        rect(btnX, btnY, 112, 32, 16);
+        rect(btnX, btnY, 106, 30, 15);
         clearShadow();
 
         fill(isLast ? '#ffffff' : '#4a4238');
-        textSize(12.5);
+        textSize(12);
         textStyle(BOLD);
-        text(isLast ? "开始探索 ✨" : "下一页 ▸", btnX, btnY + 0.5);
+        text(isLast ? "Explore ✨" : "Next ▸", btnX, btnY + 0.5);
         textStyle(NORMAL);
 
         pop();
@@ -722,7 +753,7 @@ def render():
         fill('#6b6356');
         textAlign(RIGHT, BOTTOM);
         textSize(hovered ? 12 : 11);
-        text(hovered ? "翻页前往 Weather World ▸" : "天气世界 ▸", cx - curlSize - 8, cy - 10);
+        text(hovered ? "Flip to Weather World ▸" : "Weather World ▸", cx - curlSize - 8, cy - 10);
         pop();
       }}
 
@@ -744,17 +775,17 @@ def render():
         fill('#6b6356');
         textAlign(LEFT, BOTTOM);
         textSize(11);
-        text("◂ 返回花园", curlSize + 8, cy - 10);
+        text("◂ Back to Garden", curlSize + 8, cy - 10);
         pop();
       }}
 
-      // ================== 新版合成规则（花+花=花圈，花+水=蝴蝶，蘑菇+蘑菇=大蘑菇补体力） ==================
+      // ================== Crafting Rules ==================
       function addElementToCraftSlot(elemId) {{
         if (inv[elemId] <= 0) {{
           const tips = {{
-            flower: "🌸 花朵不够啦，浇水让花苗盛开后点击采摘即可收集！",
-            mushroom: "🍄 波点蘑菇不够啦，浇水让蘑菇长大后点击采摘即可收集！",
-            water: "💧 点一点蓝色荷花池水面，就能收集清凉的池水！",
+            flower: "🌸 Not enough flowers! Water sprouts and pick blooming flowers.",
+            mushroom: "🍄 Not enough mushrooms! Water sprouts and pick grown mushrooms.",
+            water: "💧 Click the blue lotus pond to collect fresh pond water!",
           }};
           showCraftToast(tips[elemId]);
           playChimeNote(330.0, 0.25, 0.06);
@@ -777,13 +808,11 @@ def render():
         fairyBurstRing = 1.0;
 
         if (pair === "flower+flower") {{
-          // 1. 花 + 花 = 花圈给小精灵戴在头上
           unlockedMiracles.add("flowerCrown");
           miracleEffects.flowerCrown = true;
           playCraftSuccessSound();
-          showCraftToast("💐 合成成功！【繁花花圈】已戴在花仙子头上啦～");
+          showCraftToast("💐 Crafted! Floral Wreath placed on the Flower Fairy's head!");
         }} else if (pair === "flower+water") {{
-          // 2. 花 + 水 = 合成更多蝴蝶
           unlockedMiracles.add("moreButterflies");
           playCraftSuccessSound();
           for (let i = 0; i < 5; i++) {{
@@ -792,9 +821,8 @@ def render():
               constrain(sprite.y + random(30, 120), 330, 515)
             ));
           }}
-          showCraftToast("🦋 合成成功！召唤了 5 只幻彩折纸蝴蝶在花丛中翩翩起舞！");
+          showCraftToast("🦋 Crafted! Summoned 5 pastel origami butterflies to dance!");
         }} else if (pair === "mushroom+mushroom") {{
-          // 3. 蘑菇 + 蘑菇 = 合成大蘑菇给小精灵补充体力
           unlockedMiracles.add("bigMushroomStamina");
           playCraftSuccessSound();
           miracleEffects.bigMushroomAnim = {{
@@ -803,13 +831,12 @@ def render():
             t: 0,
             duration: 42
           }};
-          showCraftToast("🍄 合成成功！【能量大蘑菇】已喂给花仙子，体力与飞行速度大幅提升！");
+          showCraftToast("🍄 Crafted! Giant Energy Mushroom restores fairy stamina & speed!");
         }} else {{
-          // 非指定配方时温和退还材料，避免浪费
           inv[a]++;
           inv[b]++;
           playChimeNote(392.0, 0.25, 0.06);
-          showCraftToast("💡 试试【🌸+🌸 花圈】、【🌸+💧 蝴蝶】或【🍄+🍄 大蘑菇】吧，材料已退回～");
+          showCraftToast("💡 Try [🌸+🌸 Wreath], [🌸+💧 Butterflies], or [🍄+🍄 Giant Mushroom]!");
         }}
 
         setTimeout(() => {{
@@ -826,7 +853,6 @@ def render():
         if (sceneState !== "GARDEN_ACTIVE") return;
 
         push();
-        // 1. 工作台底座（奶白色手工折纸长圆托盘）
         setPaperShadow(10, 2, 4, 'rgba(55, 50, 40, 0.22)');
         noStroke();
         fill(250, 245, 235, 238);
@@ -834,7 +860,6 @@ def render():
         rect(532, WORKBENCH_Y, 260, 44, 22);
         clearShadow();
 
-        // 2. 3 个基础元素按钮 + 库存角标
         const elemIcons = {{ flower: '🌸', mushroom: '🍄', water: '💧' }};
         for (let btn of CRAFT_ELEM_BTNS) {{
           let count = inv[btn.id];
@@ -861,7 +886,6 @@ def render():
           pop();
         }}
 
-        // 3. 中央双槽合成凹槽
         let slotOffsets = [-18, 18];
         if (craftAnimTimer > 0) {{
           craftAnimTimer--;
@@ -893,7 +917,6 @@ def render():
           }}
         }}
 
-        // 4. 右侧图鉴解锁进度徽章 (📖 0/3)
         fill('#6b6356');
         textAlign(CENTER, CENTER);
         textSize(11);
@@ -902,7 +925,6 @@ def render():
         pop();
       }}
 
-      // ================== 合成产物动态演出（大蘑菇飞向花仙子补充体力） ==================
       function updateAndDrawMiracleAnimations() {{
         if (miracleEffects.staminaBoostTimer > 0) {{
           miracleEffects.staminaBoostTimer--;
@@ -938,7 +960,7 @@ def render():
 
           if (prog >= 1) {{
             miracleEffects.bigMushroomAnim = null;
-            miracleEffects.staminaBoostTimer = 900; // 激活 15 秒体力充沛状态
+            miracleEffects.staminaBoostTimer = 900;
             fairyBurstRing = 1.0;
             playChimeNote(880.0, 0.45, 0.1, 0);
             playChimeNote(1174.66, 0.55, 0.1, 0.08);
@@ -1051,10 +1073,10 @@ def render():
       }}
 
       const WEATHER_BUTTONS = [
-        {{ id: 'sun',   label: '☀️ 晴阳', x: 250, y: 492 }},
-        {{ id: 'cloud', label: '☁️ 积云', x: 370, y: 492 }},
-        {{ id: 'rain',  label: '💧 雨滴', x: 490, y: 492 }},
-        {{ id: 'wind',  label: '🍃 微风', x: 610, y: 492 }}
+        {{ id: 'sun',   label: '☀️ Sun',   x: 250, y: 492 }},
+        {{ id: 'cloud', label: '☁️ Cloud', x: 370, y: 492 }},
+        {{ id: 'rain',  label: '💧 Rain',  x: 490, y: 492 }},
+        {{ id: 'wind',  label: '🍃 Wind',  x: 610, y: 492 }}
       ];
 
       function toggleWeatherElement(id) {{
@@ -1076,25 +1098,25 @@ def render():
 
         if (has('sun') && has('rain')) {{
           activeComboWeather = 'rainbow';
-          comboBannerText = "✨ 隐藏天气【晴雨折纸虹】出现！点击飘落的能量晶石收集";
+          comboBannerText = "✨ Hidden Weather [Paper Rainbow] appeared! Click falling orbs to collect";
         }} else if (has('cloud') && has('wind')) {{
           activeComboWeather = 'breeze_clouds';
-          comboBannerText = "🍃 隐藏天气【流云风车舞】激活！风车加速转动汇聚能量";
+          comboBannerText = "🍃 Hidden Weather [Drifting Windmill] active! Gathering sky energy";
         }} else if (has('cloud') && has('rain')) {{
           activeComboWeather = 'thunder_glow';
-          comboBannerText = "⚡ 隐藏天气【星辉雷雨云】降临！云层落下金色能量雨";
+          comboBannerText = "⚡ Hidden Weather [Starlit Raincloud] arrived! Golden droplets falling";
         }} else if (has('sun') && has('wind')) {{
           activeComboWeather = 'warm_breeze';
-          comboBannerText = "🌼 隐藏天气【暖风蒲公英】吹起！天空飘起绒毛光粒";
+          comboBannerText = "🌼 Hidden Weather [Dandelion Breeze] blowing! Floating light seeds";
         }} else if (has('sun') && has('cloud')) {{
           activeComboWeather = 'sun_halo';
-          comboBannerText = "🌤️ 隐藏天气【云隙日晕】展开！金色折纸光环显现";
+          comboBannerText = "🌤️ Hidden Weather [Sun Halo] revealed! Golden origami ring shining";
         }} else if (has('rain') && has('wind')) {{
           activeComboWeather = 'slant_rain';
-          comboBannerText = "🌧️ 隐藏天气【斜风细雨丝】织成银色纸帘！";
+          comboBannerText = "🌧️ Hidden Weather [Slanted Drizzle] weaving silver paper threads!";
         }} else if (selectedWeatherElems.length === 1) {{
           activeComboWeather = selectedWeatherElems[0];
-          comboBannerText = "再点击另一个天气元素，尝试组合出隐藏天气变化！";
+          comboBannerText = "Select one more weather element to discover a hidden combination!";
         }} else {{
           activeComboWeather = null;
           comboBannerText = "";
@@ -1381,7 +1403,7 @@ def render():
           noStroke();
           fill(250, 245, 235, 225);
           rectMode(CENTER);
-          rect(width / 2, 72, 420, 30, 15);
+          rect(width / 2, 72, 460, 30, 15);
           fill('#6b6356');
           textAlign(CENTER, CENTER);
           textSize(12);
@@ -1394,7 +1416,7 @@ def render():
         let hy = 16;
         let hh = 30;
 
-        // 1. 合成成功时的顶部温和提示胶囊
+        // 1. Craft toast pill
         if (craftToastTimer > 0 && craftToastText && bookMode === "LIVING") {{
           craftToastTimer--;
           push();
@@ -1402,21 +1424,21 @@ def render():
           noStroke();
           fill(250, 245, 235, 238);
           rectMode(CENTER);
-          rect(width / 2 - 40, 31, 410, 32, 16);
+          rect(width / 2 - 42, 31, 415, 32, 16);
           clearShadow();
 
           fill('#5c5346');
           textAlign(CENTER, CENTER);
-          textSize(12);
-          text(craftToastText, width / 2 - 40, 31.5);
+          textSize(11.5);
+          text(craftToastText, width / 2 - 42, 31.5);
           pop();
         }}
 
-        // 2. 左上角状态徽章（体力充沛 / 天空能量）
+        // 2. Top-left status badge
         if (bookMode === "LIVING" || bookMode === "TURNING_TO_LIVING") {{
           if (miracleEffects.staminaBoostTimer > 0) {{
             push();
-            let bw = 132;
+            let bw = 138;
             setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
             noStroke();
             fill('#fff3b0');
@@ -1426,12 +1448,12 @@ def render():
             fill('#6b5b2b');
             textAlign(CENTER, CENTER);
             textSize(11.5);
-            text(`⚡ 体力充沛 ${{ceil(miracleEffects.staminaBoostTimer / 60)}}s`, 18 + bw / 2, hy + hh / 2 + 0.5);
+            text(`⚡ Stamina ${{ceil(miracleEffects.staminaBoostTimer / 60)}}s`, 18 + bw / 2, hy + hh / 2 + 0.5);
             pop();
           }}
         }} else {{
           push();
-          let bw = 146;
+          let bw = 152;
           setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
           noStroke();
           fill(250, 245, 235, 225);
@@ -1441,16 +1463,16 @@ def render():
           fill('#6b6356');
           textAlign(CENTER, CENTER);
           textSize(12);
-          text(`✨ 天空能量 : ${{skyEnergyCount}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
+          text(`✨ Sky Energy: ${{skyEnergyCount}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
           pop();
         }}
 
-        // 3. 右上角“💬 玩法说明”唤出按钮（弹窗关闭后可随时点开重看）
+        // 3. Top-right "💬 Guide" button
         if (!introModalActive && bookMode === "LIVING") {{
           push();
-          let hx = width - 202;
+          let hx = width - 208;
           let hby = 16;
-          let hbw = 90;
+          let hbw = 86;
           let hbh = 30;
           setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
           noStroke();
@@ -1461,15 +1483,15 @@ def render():
           fill('#6b6356');
           textAlign(CENTER, CENTER);
           textSize(12);
-          text("💬 玩法说明", hx + hbw / 2, hby + hbh / 2 + 1);
+          text("💬 Guide", hx + hbw / 2, hby + hbh / 2 + 1);
           pop();
         }}
 
-        // 4. 右上角静音开关
+        // 4. Top-right Sound toggle
         push();
-        let bx = width - 104;
+        let bx = width - 114;
         let by = 16;
-        let bw = 88;
+        let bw = 98;
         let bh = 30;
         setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
         noStroke();
@@ -1480,7 +1502,7 @@ def render():
         fill('#6b6356');
         textAlign(CENTER, CENTER);
         textSize(12);
-        text(soundEnabled ? "🔊 音效已开" : "🔇 已静音", bx + bw / 2, by + bh / 2 + 1);
+        text(soundEnabled ? "🔊 Sound On" : "🔇 Muted", bx + bw / 2, by + bh / 2 + 1);
         pop();
       }}
 
@@ -1835,7 +1857,13 @@ def render():
 
       function updateCursorStyle() {{
         if (introModalActive) {{
-          cursor(HAND);
+          if (isPointOnModalPrevBtn(mouseX, mouseY) ||
+              isPointOnModalNextBtn(mouseX, mouseY) ||
+              isPointOnMuteButton(mouseX, mouseY)) {{
+            cursor(HAND);
+          }} else {{
+            cursor(ARROW);
+          }}
           return;
         }}
         if (isPointOnMuteButton(mouseX, mouseY) || isPointOnHelpButton(mouseX, mouseY)) {{
@@ -1900,19 +1928,27 @@ def render():
           return;
         }}
 
-        // 1. 开场前完整说明弹窗翻页与关闭控制
+        // 1. Pre-start Guide Modal Prev / Next / Explore controls
         if (introModalActive) {{
-          if (introPageIndex < INTRO_PAGES.length - 1) {{
-            introPageIndex++;
-            playChimeNote(587.33 + introPageIndex * 90, 0.3, 0.07);
-          }} else {{
-            introModalActive = false;
-            playChimeNote(783.99, 0.45, 0.09);
+          if (isPointOnModalPrevBtn(mouseX, mouseY)) {{
+            introPageIndex = max(0, introPageIndex - 1);
+            playChimeNote(523.25 + introPageIndex * 80, 0.28, 0.07);
+            return;
+          }}
+          if (isPointOnModalNextBtn(mouseX, mouseY)) {{
+            if (introPageIndex < INTRO_PAGES.length - 1) {{
+              introPageIndex++;
+              playChimeNote(587.33 + introPageIndex * 90, 0.3, 0.07);
+            }} else {{
+              introModalActive = false;
+              playChimeNote(783.99, 0.45, 0.09);
+            }}
+            return;
           }}
           return;
         }}
 
-        // 右上角“💬 玩法说明”随时重新打开完整说明
+        // Re-open full guide modal anytime via top-right button
         if (isPointOnHelpButton(mouseX, mouseY)) {{
           introModalActive = true;
           introPageIndex = 0;
@@ -2358,7 +2394,6 @@ def render():
             this.targetY = constrain(mouseY, 80, 395);
           }}
 
-          // 体力充沛时飞行跟随速度提升
           let followEase = miracleEffects.staminaBoostTimer > 0 ? 0.16 : 0.09;
           let hoverY = sin(frameCount * 0.07) * 5;
           let prevX = this.x;
@@ -2391,7 +2426,6 @@ def render():
         display() {{
           if (!this.visible) return;
 
-          // 体力充沛时的暖金色元气光环
           if (miracleEffects.staminaBoostTimer > 0) {{
             push();
             noFill();
@@ -2466,15 +2500,13 @@ def render():
             circle(0, 0, 40);
           }}
 
-          // 花 + 花 = 花圈戴在小精灵头上
+          // Floral Wreath worn on the fairy's head
           if (miracleEffects.flowerCrown) {{
             push();
             translate(0, -34);
             noStroke();
-            // 绿色折纸藤叶底环
             fill('#8ac926');
             ellipse(0, 2, 36, 10);
-            // 五朵立体折纸小花环绕
             const crownCols = ['#ffafcc', '#ffd166', '#ff758f', '#90dbf4', '#cdb4db'];
             for (let i = 0; i < 5; i++) {{
               let fx = -14 + i * 7;
