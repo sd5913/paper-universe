@@ -407,14 +407,14 @@ def render():
       function isPointOnModalPrevBtn(px, py) {{
         if (!introModalActive || introPageIndex === 0) return false;
         let bx = width / 2 - 42;
-        let by = height / 2 - 8 + 68;
+        let by = height / 2 - 8 + 78;
         return abs(px - bx) <= 46 && abs(py - by) <= 18;
       }}
 
       function isPointOnModalNextBtn(px, py) {{
         if (!introModalActive) return false;
-        let bx = width / 2 + 216;
-        let by = height / 2 - 8 + 68;
+        let bx = width / 2 + 212;
+        let by = height / 2 - 8 + 78;
         return abs(px - bx) <= 56 && abs(py - by) <= 18;
       }}
 
