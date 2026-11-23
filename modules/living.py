@@ -816,7 +816,7 @@ def render():
         pop();
       }}
 
-      // ================== Feature 2: Dusk Atmosphere & Glowing Lanterns ==================
+      // ================== Feature 2: Dusk Atmosphere & Fireflies ==================
       function drawDuskAtmosphereOverlay() {{
         if (duskBlend <= 0.01) return;
 
@@ -829,41 +829,7 @@ def render():
         rect(0, 0, width, height);
         pop();
 
-        // 2. Warm lantern glow at the mushroom house door & window
-        push();
-        noStroke();
-        let flicker = sin(frameCount * 0.14) * 8;
-        let doorShiftX = DOOR_X - parallaxX * 2.5;
-        fill(255, 214, 112, duskBlend * 95);
-        circle(doorShiftX, DOOR_Y - 12, 85 + flicker);
-        fill(255, 238, 170, duskBlend * 140);
-        circle(doorShiftX, DOOR_Y - 12, 34 + flicker * 0.4);
-        // Upper window candle glow
-        fill(255, 224, 130, duskBlend * 120);
-        circle(doorShiftX - 18, DOOR_Y - 66, 36 + flicker * 0.5);
-        pop();
-
-        // 3. Soft bioluminescent glow on bloomed lotus & mushrooms at dusk
-        for (let lily of waterLilies) {{
-          if (lily.bloom > 0.2) {{
-            push();
-            noStroke();
-            fill(255, 232, 165, duskBlend * lily.bloom * 85);
-            circle(lily.x - parallaxX * 2.5, lily.y, 52);
-            pop();
-          }}
-        }}
-        for (let p of plants) {{
-          if (p.kind === 'mushroom' && p.bloom > 0.4) {{
-            push();
-            noStroke();
-            fill(255, 215, 110, duskBlend * p.bloom * 75);
-            circle(p.x - parallaxX * 4.5, p.y - 16, 46);
-            pop();
-          }}
-        }}
-
-        // 4. Drifting dusk fireflies
+        // 2. Drifting dusk fireflies
         for (let ff of fireflies) {{
           let fx = ff.x + cos(frameCount * ff.speed + ff.phase) * ff.rx - parallaxX * 4.0;
           let fy = ff.y + sin(frameCount * ff.speed * 1.3 + ff.phase) * ff.ry;
