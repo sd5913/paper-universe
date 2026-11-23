@@ -23,10 +23,10 @@ def load_asset_data_uri(filenames: list[str]) -> str:
 
 
 def render():
-    """Display the Living World module with Pre-start Guide Modal & Updated Crafting Rules."""
+    """Display the Living World module with Day/Dusk Lighting, Parallax Depth & Pop-up Page Turn."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "Read the Flower Fairy's guide to begin: wake the fairy, scoop pond water to bloom flowers and mushrooms, craft wonders at the workbench, and turn the pop-up page corner to enter Weather World!"
+        "Read the Flower Fairy's guide to begin: toggle Day/Dusk lighting, enjoy layered paper parallax depth, craft wonders at the workbench, and flip the corner to enter Weather World!"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -89,6 +89,15 @@ def render():
       let mushroomImgs = [];
       let birdImgs = [];
 
+      // ================== Feature 2: Day / Dusk Lighting State ==================
+      let isDuskMode = false;
+      let duskBlend = 0; // Smoothly lerps between 0 (Day) and 1 (Dusk)
+      let fireflies = [];
+
+      // ================== Feature 4: Paper Parallax & Breeze Wave ==================
+      let parallaxX = 0;
+      let breezeWaveX = -200;
+
       // ================== Pre-start Guide Modal State ==================
       let introModalActive = true;
       let introPageIndex = 0;
@@ -103,11 +112,10 @@ def render():
         }},
         {{
           title: "📖 Hidden Wonders & Pop-up Flip (3/3)",
-          body: "Tap the lily-pad frog, perched birds, tree crowns, and\nmusical stepping stones for playful sounds and surprises.\nClick the bottom-right page curl anytime to visit Weather World!"
+          body: "Tap the frog, birds, tree crowns & stones, or switch Day/Dusk\nlighting at the top right for glowing fireflies & lanterns.\nClick the bottom-right page curl anytime to visit Weather World!"
         }}
       ];
 
-      // Top toast banner after crafting
       let craftToastText = "";
       let craftToastTimer = 0;
 
@@ -136,7 +144,6 @@ def render():
       let orbitWreathItems = [];
       let fairyBurstRing = 0;
 
-      // ================== Crafting Inventory & Recipes ==================
       let inv = {{
         flower: 2,
         mushroom: 2,
@@ -156,7 +163,6 @@ def render():
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
 
-      // Weather World State
       let selectedWeatherElems = [];
       let activeComboWeather = null;
       let skyEnergyCount = 0;
@@ -383,12 +389,17 @@ def render():
         return (dx * dx + dy * dy) <= 1.05;
       }}
 
+      // Top-right HUD buttons: Sound Toggle, Guide Button, Day/Dusk Toggle
       function isPointOnMuteButton(px, py) {{
         return px >= width - 114 && px <= width - 16 && py >= 16 && py <= 46;
       }}
 
       function isPointOnHelpButton(px, py) {{
-        return !introModalActive && px >= width - 208 && px <= width - 122 && py >= 16 && py <= 46;
+        return !introModalActive && bookMode === "LIVING" && px >= width - 208 && px <= width - 122 && py >= 16 && py <= 46;
+      }}
+
+      function isPointOnDuskButton(px, py) {{
+        return !introModalActive && bookMode === "LIVING" && px >= width - 302 && px <= width - 216 && py >= 16 && py <= 46;
       }}
 
       function isPointOnWorkbench(px, py) {{
@@ -403,7 +414,6 @@ def render():
         return px <= 125 && py >= height - 115;
       }}
 
-      // Guide modal Prev / Next button hitboxes (relative to canvas)
       function isPointOnModalPrevBtn(px, py) {{
         if (!introModalActive || introPageIndex === 0) return false;
         let bx = width / 2 - 42;
@@ -443,6 +453,18 @@ def render():
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
         frog = new OrigamiFrog();
+
+        // Initialize 14 dusk fireflies
+        for (let i = 0; i < 14; i++) {{
+          fireflies.push({{
+            x: random(60, width - 60),
+            y: random(210, 510),
+            phase: random(TWO_PI),
+            speed: random(0.015, 0.032),
+            rx: random(18, 42),
+            ry: random(10, 24)
+          }});
+        }}
 
         waterLilies = [
           {{ x: 136, y: 398, bloom: 0, targetBloom: 0, color: '#f7cad0' }},
@@ -516,7 +538,27 @@ def render():
         return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2);
       }}
 
+      // Helper: Returns breeze wave strength (0 to 1) at horizontal coordinate x
+      function getBreezeStrengthAt(x) {{
+        let d = abs(x - breezeWaveX);
+        if (d > 140) return 0;
+        return sin(map(d, 0, 140, HALF_PI, 0));
+      }}
+
       function draw() {{
+        // Smooth Day/Dusk transition
+        duskBlend = lerp(duskBlend, isDuskMode ? 1.0 : 0.0, 0.05);
+
+        // Smooth mouse parallax offset (-1 to +1)
+        let normMouseX = constrain((mouseX - width / 2) / (width / 2), -1, 1);
+        parallaxX = lerp(parallaxX, introModalActive ? 0 : normMouseX, 0.06);
+
+        // Periodic gentle breeze wave sweeping from left to right
+        breezeWaveX += 3.2;
+        if (breezeWaveX > width + 450) {{
+          breezeWaveX = -220;
+        }}
+
         if (bookMode === "LIVING") {{
           renderLivingWorld(1.0);
           if (!introModalActive) {{
@@ -605,7 +647,7 @@ def render():
         updateCursorStyle();
       }}
 
-      // ================== Pre-start Full Guide Modal (Shifted down to avoid top leaves) ==================
+      // ================== Pre-start Full Guide Modal ==================
       function drawPreStartGuideModal() {{
         push();
         noStroke();
@@ -635,7 +677,6 @@ def render():
 
         let page = INTRO_PAGES[introPageIndex];
 
-        // Title shifted down & slightly left (x=92, y=-38) so "(2/3)" clears the top-right leaves
         fill('#4a4238');
         noStroke();
         textAlign(CENTER, CENTER);
@@ -643,7 +684,6 @@ def render():
         textStyle(BOLD);
         text(page.title, 92, -38);
 
-        // Body text shifted down (x=92, y=16) inside the widest parchment zone
         textStyle(NORMAL);
         fill('#5c5346');
         textSize(11.5);
@@ -651,7 +691,6 @@ def render():
         rectMode(CENTER);
         text(page.body, 92, 16, 350, 88);
 
-        // Previous button (y=78)
         if (introPageIndex > 0) {{
           let prevX = -42;
           let prevY = 78;
@@ -668,13 +707,11 @@ def render():
           textStyle(NORMAL);
         }}
 
-        // Center pagination dots (y=78)
         for (let i = 0; i < INTRO_PAGES.length; i++) {{
           fill(i === introPageIndex ? '#72ac53' : '#d6ccb8');
           circle(72 + i * 16, 78, i === introPageIndex ? 7.5 : 5.5);
         }}
 
-        // Next / Explore button (y=78)
         let btnX = 212;
         let btnY = 78;
         let isLast = introPageIndex === INTRO_PAGES.length - 1;
@@ -750,7 +787,7 @@ def render():
         line(cx - curlSize, cy, cx, cy - curlSize);
 
         noStroke();
-        fill('#6b6356');
+        fill(duskBlend > 0.5 ? '#f5efe2' : '#6b6356');
         textAlign(RIGHT, BOTTOM);
         textSize(hovered ? 12 : 11);
         text(hovered ? "Flip to Weather World ▸" : "Weather World ▸", cx - curlSize - 8, cy - 10);
@@ -777,6 +814,70 @@ def render():
         textSize(11);
         text("◂ Back to Garden", curlSize + 8, cy - 10);
         pop();
+      }}
+
+      // ================== Feature 2: Dusk Atmosphere & Glowing Lanterns ==================
+      function drawDuskAtmosphereOverlay() {{
+        if (duskBlend <= 0.01) return;
+
+        // 1. Multiply deep twilight tint over paper background
+        push();
+        blendMode(MULTIPLY);
+        noStroke();
+        let tintCol = lerpColor(color(255, 255, 255), color(145, 168, 212), duskBlend);
+        fill(tintCol);
+        rect(0, 0, width, height);
+        pop();
+
+        // 2. Warm lantern glow at the mushroom house door & window
+        push();
+        noStroke();
+        let flicker = sin(frameCount * 0.14) * 8;
+        let doorShiftX = DOOR_X - parallaxX * 2.5;
+        fill(255, 214, 112, duskBlend * 95);
+        circle(doorShiftX, DOOR_Y - 12, 85 + flicker);
+        fill(255, 238, 170, duskBlend * 140);
+        circle(doorShiftX, DOOR_Y - 12, 34 + flicker * 0.4);
+        // Upper window candle glow
+        fill(255, 224, 130, duskBlend * 120);
+        circle(doorShiftX - 18, DOOR_Y - 66, 36 + flicker * 0.5);
+        pop();
+
+        // 3. Soft bioluminescent glow on bloomed lotus & mushrooms at dusk
+        for (let lily of waterLilies) {{
+          if (lily.bloom > 0.2) {{
+            push();
+            noStroke();
+            fill(255, 232, 165, duskBlend * lily.bloom * 85);
+            circle(lily.x - parallaxX * 2.5, lily.y, 52);
+            pop();
+          }}
+        }}
+        for (let p of plants) {{
+          if (p.kind === 'mushroom' && p.bloom > 0.4) {{
+            push();
+            noStroke();
+            fill(255, 215, 110, duskBlend * p.bloom * 75);
+            circle(p.x - parallaxX * 4.5, p.y - 16, 46);
+            pop();
+          }}
+        }}
+
+        // 4. Drifting dusk fireflies
+        for (let ff of fireflies) {{
+          let fx = ff.x + cos(frameCount * ff.speed + ff.phase) * ff.rx - parallaxX * 4.0;
+          let fy = ff.y + sin(frameCount * ff.speed * 1.3 + ff.phase) * ff.ry;
+          let pulse = sin(frameCount * 0.1 + ff.phase * 2) * 0.5 + 0.5;
+
+          push();
+          translate(fx, fy);
+          noStroke();
+          fill(215, 255, 130, duskBlend * (40 + pulse * 85));
+          circle(0, 0, 16 + pulse * 6);
+          fill(255, 255, 210, duskBlend * (140 + pulse * 115));
+          circle(0, 0, 4.5);
+          pop();
+        }}
       }}
 
       // ================== Crafting Rules ==================
@@ -969,18 +1070,35 @@ def render():
       }}
 
       function renderLivingWorld(alphaScale) {{
+        // Far Layer (Background with slight parallax shift)
         if (bgImg) {{
           imageMode(CORNER);
-          image(bgImg, 0, 0, width, height);
+          image(bgImg, -10 - parallaxX * 2.5, 0, width + 20, height);
         }} else {{
           background('#f7f2e7');
         }}
 
+        // Mid Layer (Pond, Stepping Stones, Water Lilies shifted by -parallaxX * 2.5 to match background pond)
+        push();
+        translate(-parallaxX * 2.5, 0);
         drawDoorPortal();
         drawPondHint();
         drawStepStonesGlow();
         drawWaterLilies();
 
+        for (let i = ripples.length - 1; i >= 0; i--) {{
+          ripples[i].update();
+          ripples[i].display();
+          if (ripples[i].alpha <= 0) ripples.splice(i, 1);
+        }}
+
+        frog.update();
+        frog.display();
+        pop();
+
+        // Foreground Layer (Grass Blades & Plants with stronger parallax depth -parallaxX * 4.5)
+        push();
+        translate(-parallaxX * 4.5, 0);
         for (let g of grassBlades) {{
           g.update();
           g.display();
@@ -995,6 +1113,8 @@ def render():
           if (p.bloom > 0.55) bloomedCount++;
         }}
         gardenVitality = totalBloom / plants.length;
+        drawGroundBucket();
+        pop();
 
         if (hasWateredFlowers && bloomedCount >= 1) {{
           let targetButterflyCount = min(7, 2 + floor(bloomedCount / 3));
@@ -1015,15 +1135,6 @@ def render():
           birds.push(new OrigamiBird(idx === 0 ? -35 : width + 35, random(90, 160), perch.x, perch.y, idx));
         }}
 
-        for (let i = ripples.length - 1; i >= 0; i--) {{
-          ripples[i].update();
-          ripples[i].display();
-          if (ripples[i].alpha <= 0) ripples.splice(i, 1);
-        }}
-
-        frog.update();
-        frog.display();
-
         for (let i = waterDrops.length - 1; i >= 0; i--) {{
           waterDrops[i].update();
           waterDrops[i].display();
@@ -1033,7 +1144,6 @@ def render():
           }}
         }}
 
-        drawGroundBucket();
         updateAndDrawHarvestParticles();
         updateAndDrawHarvestedItems();
 
@@ -1050,6 +1160,9 @@ def render():
         updateAndDrawFallingLeaves();
         updateAndDrawMusicNotes();
 
+        // Apply Dusk Twilight Overlay & Fireflies before HUD & Fairy
+        drawDuskAtmosphereOverlay();
+
         let pourInterval = miracleEffects.staminaBoostTimer > 0 ? 4 : 7;
         if (!introModalActive && bookMode === "LIVING" && sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % pourInterval === 0) {{
           if (!isPointInPond(mouseX, mouseY) &&
@@ -1059,6 +1172,7 @@ def render():
               !getClickedRipePlant(mouseX, mouseY) &&
               !isPointOnWorkbench(mouseX, mouseY) &&
               !isPointOnPageCurl(mouseX, mouseY) &&
+              !isPointOnDuskButton(mouseX, mouseY) &&
               !isPointOnHelpButton(mouseX, mouseY) &&
               !isPointOnMuteButton(mouseX, mouseY)) {{
             sprite.pourWater();
@@ -1424,13 +1538,13 @@ def render():
           noStroke();
           fill(250, 245, 235, 238);
           rectMode(CENTER);
-          rect(width / 2 - 42, 31, 415, 32, 16);
+          rect(width / 2 - 90, 31, 360, 32, 16);
           clearShadow();
 
           fill('#5c5346');
           textAlign(CENTER, CENTER);
-          textSize(11.5);
-          text(craftToastText, width / 2 - 42, 31.5);
+          textSize(11);
+          text(craftToastText, width / 2 - 90, 31.5);
           pop();
         }}
 
@@ -1438,7 +1552,7 @@ def render():
         if (bookMode === "LIVING" || bookMode === "TURNING_TO_LIVING") {{
           if (miracleEffects.staminaBoostTimer > 0) {{
             push();
-            let bw = 138;
+            let bw = 132;
             setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
             noStroke();
             fill('#fff3b0');
@@ -1467,7 +1581,27 @@ def render():
           pop();
         }}
 
-        // 3. Top-right "💬 Guide" button
+        // 3. Top-right "🌙 Dusk / ☀️ Day" Toggle
+        if (!introModalActive && bookMode === "LIVING") {{
+          push();
+          let dx = width - 302;
+          let dby = 16;
+          let dbw = 86;
+          let dbh = 30;
+          setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+          noStroke();
+          fill(isDuskMode ? '#3d4866' : 'rgba(250, 245, 235, 0.88)');
+          rect(dx, dby, dbw, dbh, 15);
+          clearShadow();
+
+          fill(isDuskMode ? '#ffe699' : '#6b6356');
+          textAlign(CENTER, CENTER);
+          textSize(12);
+          text(isDuskMode ? "☀️ Day" : "🌙 Dusk", dx + dbw / 2, dby + dbh / 2 + 1);
+          pop();
+        }}
+
+        // 4. Top-right "💬 Guide" button
         if (!introModalActive && bookMode === "LIVING") {{
           push();
           let hx = width - 208;
@@ -1487,7 +1621,7 @@ def render():
           pop();
         }}
 
-        // 4. Top-right Sound toggle
+        // 5. Top-right Sound toggle
         push();
         let bx = width - 114;
         let by = 16;
@@ -1509,10 +1643,11 @@ def render():
       function getClickedRipePlant(px, py) {{
         let closest = null;
         let minDist = 24;
+        let worldPx = px + parallaxX * 4.5;
         for (let p of plants) {{
           if (p.bloom > 0.72) {{
             let centerY = p.kind === 'flower' ? (p.y - p.stemHeight) : (p.y - 16);
-            let d = dist(px, py, p.x, centerY);
+            let d = dist(worldPx, py, p.x, centerY);
             if (d < minDist) {{
               minDist = d;
               closest = p;
@@ -1603,17 +1738,18 @@ def render():
       }}
 
       function harvestPlant(p) {{
+        let screenX = p.x - parallaxX * 4.5;
         let startY = p.kind === 'flower' ? (p.y - p.stemHeight) : (p.y - 16);
         let imgList = p.kind === 'flower' ? flowerImgs : mushroomImgs;
         let img = imgList.length > 0 ? imgList[p.variant % imgList.length] : null;
 
-        spawnHarvestBurst(p.x, startY, p.kind, p.variant);
+        spawnHarvestBurst(screenX, startY, p.kind, p.variant);
         ripples.push(new PaperRipple(p.x, p.y));
 
         harvestedItems.push({{
-          startX: p.x,
+          startX: screenX,
           startY: startY,
-          x: p.x,
+          x: screenX,
           y: startY,
           t: 0,
           duration: 28,
@@ -1691,10 +1827,11 @@ def render():
           lily.bloom = lerp(lily.bloom, lily.targetBloom, 0.06);
           if (lily.bloom <= 0.02) continue;
 
+          let breezeAmt = getBreezeStrengthAt(lily.x);
           push();
-          translate(lily.x, lily.y);
+          translate(lily.x + breezeAmt * 3, lily.y);
           scale(lily.bloom);
-          rotate(sin(frameCount * 0.03 + lily.x) * 0.06);
+          rotate(sin(frameCount * 0.03 + lily.x) * 0.06 + breezeAmt * 0.12);
           setPaperShadow(5, 1, 2, 'rgba(40, 70, 90, 0.18)');
 
           if (lotusImg) {{
@@ -1866,7 +2003,9 @@ def render():
           }}
           return;
         }}
-        if (isPointOnMuteButton(mouseX, mouseY) || isPointOnHelpButton(mouseX, mouseY)) {{
+        if (isPointOnMuteButton(mouseX, mouseY) ||
+            isPointOnHelpButton(mouseX, mouseY) ||
+            isPointOnDuskButton(mouseX, mouseY)) {{
           cursor(HAND);
           return;
         }}
@@ -1912,7 +2051,7 @@ def render():
           cursor(HAND);
         }} else if (sprite.hasBucket && isPointInPond(mouseX, mouseY)) {{
           cursor(HAND);
-        }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
+        }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x - parallaxX * 4.5, groundBucket.y) < 32) {{
           cursor(HAND);
         }} else if (getHoveredStone(mouseX, mouseY)) {{
           cursor(HAND);
@@ -1928,7 +2067,6 @@ def render():
           return;
         }}
 
-        // 1. Pre-start Guide Modal Prev / Next / Explore controls
         if (introModalActive) {{
           if (isPointOnModalPrevBtn(mouseX, mouseY)) {{
             introPageIndex = max(0, introPageIndex - 1);
@@ -1945,6 +2083,13 @@ def render():
             }}
             return;
           }}
+          return;
+        }}
+
+        // Toggle Day / Dusk lighting mode
+        if (isPointOnDuskButton(mouseX, mouseY)) {{
+          isDuskMode = !isDuskMode;
+          playChimeNote(isDuskMode ? 440.0 : 659.25, 0.45, 0.08);
           return;
         }}
 
@@ -2057,7 +2202,7 @@ def render():
               playWaterDropSound(true);
               inv.water++;
               bloomNextWaterLily();
-            }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
+            }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x - parallaxX * 4.5, groundBucket.y) < 32) {{
               sprite.pickUpBucket();
             }}
           }}
@@ -2104,15 +2249,16 @@ def render():
         ripples.push(new PaperRipple(wx, wy));
         playWaterDropSound(false);
 
+        let worldWx = wx + parallaxX * 4.5;
         for (let g of grassBlades) {{
-          if (dist(g.x, g.y, wx, wy) < 105) {{
+          if (dist(g.x, g.y, worldWx, wy) < 105) {{
             g.targetGrowth = min(1, g.targetGrowth + 0.55);
           }}
         }}
         let newlyBloomed = false;
         let boostAmt = miracleEffects.staminaBoostTimer > 0 ? 0.65 : 0.48;
         for (let p of plants) {{
-          if (dist(p.x, p.y, wx, wy) < 115) {{
+          if (dist(p.x, p.y, worldWx, wy) < 115) {{
             let prevBloom = p.targetBloom;
             p.targetBloom = min(1, p.targetBloom + boostAmt);
             if (prevBloom <= 0.65 && p.targetBloom > 0.65) {{
@@ -2188,7 +2334,7 @@ def render():
           this.squash = 1;
         }}
         isPointOnFrog(px, py) {{
-          return dist(px, py, this.x, this.y - 10) < 22;
+          return dist(px, py, this.x - parallaxX * 2.5, this.y - 10) < 22;
         }}
         startSingleHop() {{
           this.startX = this.x;
@@ -2606,7 +2752,8 @@ def render():
         }}
         display() {{
           let h = this.maxH * this.growth;
-          let sway = sin(frameCount * 0.04 + this.x * 0.1) * 3 * this.growth;
+          let breezeOffset = getBreezeStrengthAt(this.x) * 7.5 * this.growth;
+          let sway = sin(frameCount * 0.04 + this.x * 0.1) * 3 * this.growth + breezeOffset;
           push();
           translate(this.x, this.y);
           setPaperShadow(4, 1, 2, 'rgba(40, 50, 30, 0.16)');
@@ -2638,6 +2785,7 @@ def render():
           }}
         }}
         display() {{
+          let breezeAmt = getBreezeStrengthAt(this.x);
           push();
           translate(this.x, this.y);
           setPaperShadow(8, 2, 4, 'rgba(40, 50, 30, 0.22)');
@@ -2656,7 +2804,7 @@ def render():
               }}
             }} else {{
               let s = map(this.bloom, 0.2, 1, 0.15, 1.0);
-              let sway = sin(frameCount * 0.03 + this.x) * 0.04 * this.bloom;
+              let sway = (sin(frameCount * 0.03 + this.x) * 0.04 + breezeAmt * 0.08) * this.bloom;
               rotate(sway);
               scale(s);
 
@@ -2676,7 +2824,7 @@ def render():
             }}
           }} else {{
             let curH = this.stemHeight * map(this.bloom, 0.05, 1, 0.22, 1);
-            let sway = sin(frameCount * 0.035 + this.x) * 3.5 * this.bloom;
+            let sway = (sin(frameCount * 0.035 + this.x) * 3.5 + breezeAmt * 8.0) * this.bloom;
 
             stroke(this.bloom > 0.22 ? '#588b3e' : '#bfb8a5');
             strokeWeight(2.8);
@@ -2703,7 +2851,7 @@ def render():
               triangle(6, 0, 0, -13, 0, 0);
             }} else {{
               let s = map(this.bloom, 0.2, 1, 0.15, 1.0);
-              rotate(sin(frameCount * 0.025 + this.x) * 0.08);
+              rotate(sin(frameCount * 0.025 + this.x) * 0.08 + breezeAmt * 0.14);
               scale(s);
 
               let img = flowerImgs.length > 0 ? flowerImgs[this.variant % flowerImgs.length] : null;
@@ -2764,7 +2912,7 @@ def render():
 
           if (this.targetPlant) {{
             this.orbitAngle += 0.014 * this.orbitDir;
-            let destX = this.targetPlant.x + cos(this.orbitAngle) * 26;
+            let destX = (this.targetPlant.x - parallaxX * 4.5) + cos(this.orbitAngle) * 26;
             let destY = (this.targetPlant.y - this.targetPlant.stemHeight - 15) + sin(this.orbitAngle * 1.4) * 9;
             this.x = lerp(this.x, destX, 0.015);
             this.y = lerp(this.y, destY, 0.015);
@@ -2823,15 +2971,17 @@ def render():
           spawnBirdMusicNotes(this.x, this.y);
         }}
         update() {{
+          let targetScreenX = this.tx - parallaxX * 2.5;
           if (!this.perched) {{
-            this.x = lerp(this.x, this.tx, 0.032);
+            this.x = lerp(this.x, targetScreenX, 0.032);
             this.y = lerp(this.y, this.ty + sin(frameCount * 0.1) * 5, 0.032);
-            if (dist(this.x, this.y, this.tx, this.ty) < 6) {{
+            if (dist(this.x, this.y, targetScreenX, this.ty) < 6) {{
               this.perched = true;
-              this.x = this.tx;
+              this.x = targetScreenX;
               this.y = this.ty;
             }}
           }} else {{
+            this.x = targetScreenX;
             if (this.proximityCooldown > 0) this.proximityCooldown--;
             if (sprite.visible && this.proximityCooldown === 0 && dist(sprite.x, sprite.y, this.x, this.y) < 52) {{
               this.singAndHop();
