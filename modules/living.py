@@ -23,10 +23,10 @@ def load_asset_data_uri(filenames: list[str]) -> str:
 
 
 def render():
-    """Display the Living World module with Origami Pop-up Page Turn to Weather World."""
+    """Display the Living World module with Origami Crafting Workbench & Pop-up Page Turn."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击木门唤醒花仙子，跟随花仙子提示对话框体验花园生态互动；随时点击右下角的【立体书折角】，即可翻入【Weather World 天气世界】！"
+        "点击木门唤醒花仙子，收集花朵、蘑菇、池水与落叶，在底部【剪纸花环工作台】两两合成解锁 6 种花园奇迹；点击右下角【立体书折角】翻入【Weather World 天气世界】！"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -88,8 +88,10 @@ def render():
       let mushroomImgs = [];
       let birdImgs = [];
 
-      // 版本 A：花仙子动态指引气泡开关
+      // 版本 A：花仙子动态指引气泡状态
       let showGuideDialog = true;
+      let customStoryText = "";
+      let customStoryTimer = 0;
 
       let bookMode = "LIVING";
       let pageTurnProgress = 0;
@@ -115,13 +117,32 @@ def render():
       let harvestParticles = [];
       let orbitWreathItems = [];
       let fairyBurstRing = 0;
-      let harvestedFlowerCount = 0;
-      let harvestedMushroomCount = 0;
+
+      // ================== 方案一：剪纸花环工作台（4 种基础元素库存 + 6 种隐藏奇迹） ==================
+      let inv = {{
+        flower: 1,    // 采摘盛开花朵获得（初始赠 1 份方便直接体验合成）
+        mushroom: 1,  // 采摘盛开蘑菇获得（初始赠 1 份）
+        water: 0,     // 荷花池舀水或点击水面获得
+        leaf: 0       // 点击三棵大树树冠摇落树叶获得
+      }};
+      let craftSlots = [];          // 工作台双槽（最多放 2 个元素）
+      let craftAnimTimer = 0;       // 合成融合闪光动画计时
+      let unlockedMiracles = new Set(); // 已解锁的奇迹图鉴（共 6 种）
+
+      // 6 种奇迹对应的场景视觉状态
+      let miracleEffects = {{
+        flowerCrown: false,   // 🌸+🌸 繁花花冠
+        glowMushrooms: false, // 🍄+💧 荧光夜光菇
+        goldenLotus: 0,       // 🌸+💧 秘境金莲 (0 -> 1 绽放)
+        sporeSprites: [],     // 🍄+🍃 孢子小精灵
+        windChimes: false     // 💧+🍃 溪风风铃
+      }};
 
       let gardenVitality = 0;
       let hasWateredFlowers = false;
       let hasPickedBucketOnce = false;
 
+      // Weather World 状态
       let selectedWeatherElems = [];
       let activeComboWeather = null;
       let skyEnergyCount = 0;
@@ -211,9 +232,9 @@ def render():
         }});
       }}
 
-      function playMilestoneFanfare() {{
-        const notes = [587.33, 739.99, 880.00, 1174.66];
-        notes.forEach((f, i) => playChimeNote(f, 0.55, 0.09, i * 0.08));
+      function playCraftSuccessSound() {{
+        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        notes.forEach((f, i) => playChimeNote(f, 0.6, 0.095, i * 0.075));
       }}
 
       function playBirdChirpSound(variant = 0) {{
@@ -308,7 +329,7 @@ def render():
       }}
 
       let groundBucket = {{
-        x: 365,
+        x: 345,
         y: 445,
         targetY: 445,
         scale: 1
@@ -316,9 +337,18 @@ def render():
 
       const DOOR_X = 562;
       const DOOR_Y = 326;
-
       const POND_X = 195;
       const POND_Y = 382;
+
+      // 底部中央剪纸花环工作台坐标与按钮布局
+      const WORKBENCH_X = 528;
+      const WORKBENCH_Y = 518;
+      const CRAFT_ELEM_BTNS = [
+        {{ id: 'flower',   icon: '🌸', x: 432, y: 518 }},
+        {{ id: 'mushroom', icon: '🍄', x: 472, y: 518 }},
+        {{ id: 'water',    icon: '💧', x: 584, y: 518 }},
+        {{ id: 'leaf',     icon: '🍃', x: 624, y: 518 }}
+      ];
 
       const TREE_CROWNS = [
         {{ x: 108, y: 145, rx: 76, ry: 82 }},
@@ -345,13 +375,16 @@ def render():
         return px >= width - 104 && px <= width - 16 && py >= 16 && py <= 46;
       }}
 
-      // 右上角提示气泡唤出小按钮（当用户手动关闭对话框后显示）
       function isPointOnHintToggle(px, py) {{
-        return !showGuideDialog && px >= width - 196 && px <= width - 112 && py >= 16 && py <= 46;
+        return !showGuideDialog && dialogImg && px >= width - 196 && px <= width - 112 && py >= 16 && py <= 46;
       }}
 
       function isPointOnGuideDialog(px, py) {{
         return showGuideDialog && dialogImg && abs(px - 260) <= 190 && abs(py - 56) <= 50;
+      }}
+
+      function isPointOnWorkbench(px, py) {{
+        return sceneState === "GARDEN_ACTIVE" && abs(px - 538) <= 138 && abs(py - WORKBENCH_Y) <= 26;
       }}
 
       function isPointOnPageCurl(px, py) {{
@@ -410,9 +443,9 @@ def render():
 
         const grassZones = [
           {{ x1: 55,  x2: 225, y1: 470, y2: 538 }},
-          {{ x1: 340, x2: 412, y1: 465, y2: 538 }},
+          {{ x1: 340, x2: 395, y1: 465, y2: 538 }},
           {{ x1: 340, x2: 400, y1: 338, y2: 362 }},
-          {{ x1: 615, x2: 825, y1: 385, y2: 535 }}
+          {{ x1: 685, x2: 825, y1: 385, y2: 535 }}
         ];
         for (let z of grassZones) {{
           for (let x = z.x1; x <= z.x2; x += 22) {{
@@ -433,16 +466,12 @@ def render():
           {{ x: 348, y: 522, kind: 'flower',   variant: 2 }},
           {{ x: 368, y: 472, kind: 'flower',   variant: 0 }},
           {{ x: 385, y: 505, kind: 'flower',   variant: 1 }},
-          {{ x: 406, y: 534, kind: 'flower',   variant: 2 }},
-          {{ x: 408, y: 465, kind: 'flower',   variant: 0 }},
           {{ x: 332, y: 358, kind: 'flower',   variant: 2 }},
           {{ x: 354, y: 348, kind: 'flower',   variant: 1 }},
           {{ x: 398, y: 356, kind: 'mushroom', variant: 1 }},
           {{ x: 418, y: 348, kind: 'flower',   variant: 0 }},
-          {{ x: 615, y: 478, kind: 'flower',   variant: 0 }},
-          {{ x: 632, y: 522, kind: 'flower',   variant: 1 }},
-          {{ x: 665, y: 492, kind: 'flower',   variant: 2 }},
-          {{ x: 675, y: 532, kind: 'mushroom', variant: 0 }},
+          {{ x: 675, y: 478, kind: 'flower',   variant: 0 }},
+          {{ x: 688, y: 528, kind: 'mushroom', variant: 0 }},
           {{ x: 705, y: 512, kind: 'flower',   variant: 0 }},
           {{ x: 735, y: 478, kind: 'flower',   variant: 1 }},
           {{ x: 765, y: 445, kind: 'flower',   variant: 2 }},
@@ -505,8 +534,8 @@ def render():
           if (pageTurnProgress >= 1) {{
             bookMode = "WEATHER";
             popupProgress = 1;
-            if (skyEnergyCount === 0 && (harvestedFlowerCount + harvestedMushroomCount > 0)) {{
-              skyEnergyCount = min(3, harvestedFlowerCount + harvestedMushroomCount);
+            if (skyEnergyCount === 0) {{
+              skyEnergyCount = max(1, unlockedMiracles.size);
             }}
             try {{
               window.parent.postMessage({{ type: "PAPER_UNIVERSE_WORLD_CHANGE", world: "weather" }}, "*");
@@ -578,7 +607,7 @@ def render():
 
       function drawLivingPageCurl() {{
         let hovered = isPointOnPageCurl(mouseX, mouseY);
-        let readyPulse = gardenVitality > 0.25 ? (sin(frameCount * 0.08) * 0.5 + 0.5) : 0;
+        let readyPulse = (unlockedMiracles.size > 0 || gardenVitality > 0.25) ? (sin(frameCount * 0.08) * 0.5 + 0.5) : 0;
         let targetCurl = hovered ? 1.0 : (0.45 + readyPulse * 0.18);
         cornerHoverAmt = lerp(cornerHoverAmt, targetCurl, 0.14);
 
@@ -632,6 +661,256 @@ def render():
         textSize(11);
         text("◂ 返回花园", curlSize + 8, cy - 10);
         pop();
+      }}
+
+      // ================== 方案一：剪纸花环工作台逻辑与渲染 ==================
+      function addElementToCraftSlot(elemId) {{
+        if (inv[elemId] <= 0) {{
+          // 库存不足时给花仙子对话框一句温和提示
+          const tips = {{
+            flower: "花朵库存不足啦，去给花苗浇水盛开后采摘吧～",
+            mushroom: "波点蘑菇还不够哦，浇水让蘑菇长大后再采摘吧！",
+            water: "点一点蓝色的荷花池水面，就能收集到池水精华～",
+            leaf: "点一点三棵大树的树冠，就能摇落折纸树叶啦！"
+          }};
+          triggerCustomStory(tips[elemId]);
+          playChimeNote(330.0, 0.25, 0.06);
+          return;
+        }}
+
+        if (craftSlots.length >= 2) return;
+        inv[elemId]--;
+        craftSlots.push(elemId);
+        playChimeNote(587.33 + craftSlots.length * 110, 0.35, 0.08);
+
+        if (craftSlots.length === 2) {{
+          evaluateGardenCraft(craftSlots[0], craftSlots[1]);
+        }}
+      }}
+
+      function evaluateGardenCraft(a, b) {{
+        let pair = [a, b].sort().join("+");
+        craftAnimTimer = 45;
+        fairyBurstRing = 1.0;
+        playCraftSuccessSound();
+
+        if (pair === "flower+flower") {{
+          unlockedMiracles.add("flowerCrown");
+          miracleEffects.flowerCrown = true;
+          triggerCustomStory("✨ 合成【繁花花冠】！花仙子戴上了立体折纸花冠，拖尾也变成花瓣星尘啦～");
+        }} else if (pair === "mushroom+water") {{
+          unlockedMiracles.add("glowMushrooms");
+          miracleEffects.glowMushrooms = true;
+          triggerCustomStory("✨ 合成【荧光夜光菇】！花园里的波点蘑菇都泛起了温暖的琥珀微光！");
+        }} else if (pair === "flower+water") {{
+          unlockedMiracles.add("goldenLotus");
+          miracleEffects.goldenLotus = max(miracleEffects.goldenLotus, 0.05);
+          ripples.push(new PaperRipple(POND_X, POND_Y));
+          triggerCustomStory("✨ 合成【秘境金莲】！快看荷花池中央，一朵多层立体剪纸金莲正在绽放！");
+        }} else if (pair === "flower+leaf") {{
+          unlockedMiracles.add("rainbowButterflies");
+          // 额外召唤 4 只幻彩折纸蝴蝶围绕花丛飞舞
+          for (let i = 0; i < 4; i++) {{
+            butterflies.push(new OrigamiButterfly(sprite.x + random(-60, 60), max(340, sprite.y + random(20, 80))));
+          }}
+          triggerCustomStory("✨ 合成【幻彩蝶群】！四只马卡龙折纸蝴蝶翩翩飞来围绕花园起舞啦！");
+        }} else if (pair === "leaf+mushroom") {{
+          unlockedMiracles.add("sporeSprites");
+          if (miracleEffects.sporeSprites.length < 2) {{
+            miracleEffects.sporeSprites.push(
+              {{ x: 420, y: 458, vx: 0.55, hopPhase: 0, color: '#fff3b0' }},
+              {{ x: 645, y: 462, vx: -0.48, hopPhase: PI, color: '#ffd166' }}
+            );
+          }}
+          triggerCustomStory("✨ 合成【孢子小精灵】！两只圆滚滚的折纸孢子团子从蘑菇下跳出来散步啦！");
+        }} else if (pair === "leaf+water") {{
+          unlockedMiracles.add("windChimes");
+          miracleEffects.windChimes = true;
+          triggerCustomStory("✨ 合成【溪风风铃】！大树树梢挂上了折纸小风铃，微风吹过奏响八音盒旋律！");
+        }}
+
+        // 0.8 秒后清空工作台双槽，方便继续尝试其他组合
+        setTimeout(() => {{
+          craftSlots = [];
+        }}, 800);
+      }}
+
+      function triggerCustomStory(msg) {{
+        customStoryText = msg;
+        customStoryTimer = 320;
+        showGuideDialog = true;
+      }}
+
+      function drawCraftingWorkbench() {{
+        if (sceneState !== "GARDEN_ACTIVE") return;
+
+        push();
+        // 1. 工作台底座（奶白色手工折纸长圆托盘 + 右侧图鉴计数器）
+        setPaperShadow(10, 2, 4, 'rgba(55, 50, 40, 0.22)');
+        noStroke();
+        fill(250, 245, 235, 238);
+        rectMode(CENTER);
+        rect(544, WORKBENCH_Y, 276, 44, 22);
+        clearShadow();
+
+        // 2. 4 个基础元素按钮 + 库存角标
+        const elemIcons = {{ flower: '🌸', mushroom: '🍄', water: '💧', leaf: '🍃' }};
+        for (let btn of CRAFT_ELEM_BTNS) {{
+          let count = inv[btn.id];
+          let hovered = dist(mouseX, mouseY, btn.x, btn.y) < 17;
+
+          push();
+          translate(btn.x, btn.y);
+          if (hovered && count > 0) scale(1.1);
+
+          // 按钮圆底
+          noStroke();
+          fill(count > 0 ? '#f3ead8' : '#e6e0d4');
+          circle(0, 0, 30);
+
+          // 图标
+          textAlign(CENTER, CENTER);
+          textSize(15);
+          fill(255, count > 0 ? 255 : 110);
+          text(btn.icon, 0, 1);
+
+          // 右下角库存数量小圆标
+          fill(count > 0 ? '#72ac53' : '#b5aea0');
+          circle(11, 10, 14);
+          fill('#ffffff');
+          textSize(9.5);
+          text(count, 11, 10.5);
+          pop();
+        }}
+
+        // 3. 中央双槽合成凹槽（WORKBENCH_X - 18 与 WORKBENCH_X + 18）
+        let slotOffsets = [-18, 18];
+        if (craftAnimTimer > 0) {{
+          craftAnimTimer--;
+          noFill();
+          stroke(255, 215, 102, map(craftAnimTimer, 0, 45, 0, 230));
+          strokeWeight(2.5);
+          circle(WORKBENCH_X, WORKBENCH_Y, (45 - craftAnimTimer) * 2.2 + 28);
+          noStroke();
+        }}
+
+        for (let i = 0; i < 2; i++) {{
+          let sx = WORKBENCH_X + slotOffsets[i];
+          let sy = WORKBENCH_Y;
+          fill('#e8decb');
+          stroke('#cfc2aa');
+          strokeWeight(1.2);
+          circle(sx, sy, 28);
+          noStroke();
+
+          if (craftSlots[i]) {{
+            textAlign(CENTER, CENTER);
+            textSize(15);
+            text(elemIcons[craftSlots[i]], sx, sy + 1);
+          }} else {{
+            fill('#b8ae9c');
+            textAlign(CENTER, CENTER);
+            textSize(12);
+            text("+", sx, sy + 0.5);
+          }}
+        }}
+
+        // 4. 最右侧图鉴解锁进度徽章 (📖 0/6)
+        fill('#6b6356');
+        textAlign(CENTER, CENTER);
+        textSize(11);
+        text(`📖${{unlockedMiracles.size}}/6`, 660, WORKBENCH_Y + 0.5);
+
+        pop();
+      }}
+
+      // ================== 合成奇迹生态特效渲染 ==================
+      function drawMiracleEffects() {{
+        // 1. 🌺 秘境金莲（池塘中央多层立体剪纸金莲）
+        if (miracleEffects.goldenLotus > 0) {{
+          miracleEffects.goldenLotus = lerp(miracleEffects.goldenLotus, 1, 0.04);
+          push();
+          translate(POND_X, POND_Y + 4);
+          scale(miracleEffects.goldenLotus * 1.35);
+          rotate(sin(frameCount * 0.025) * 0.05);
+          setPaperShadow(8, 2, 4, 'rgba(60, 80, 90, 0.25)');
+          noStroke();
+
+          for (let i = 0; i < 8; i++) {{
+            push();
+            rotate((TWO_PI / 8) * i);
+            fill('#ffd166');
+            triangle(0, 0, -6, -18, 6, -18);
+            pop();
+          }}
+          for (let i = 0; i < 8; i++) {{
+            push();
+            rotate((TWO_PI / 8) * i + PI / 8);
+            fill('#fff3b0');
+            triangle(0, 0, -4.5, -13, 4.5, -13);
+            pop();
+          }}
+          fill('#ff9f1c');
+          circle(0, 0, 7);
+          clearShadow();
+          pop();
+        }}
+
+        // 2. 🍄‍🟫 孢子小精灵（草地上蹦跳的折纸小团子）
+        for (let sp of miracleEffects.sporeSprites) {{
+          sp.x += sp.vx;
+          if (sp.x < 330 || sp.x > 720) sp.vx *= -1;
+          let hopY = -abs(sin(frameCount * 0.08 + sp.hopPhase)) * 12;
+
+          push();
+          translate(sp.x, sp.y + hopY);
+          setPaperShadow(5, 1, 3, 'rgba(45, 50, 35, 0.2)');
+          noStroke();
+          // 圆形小身体
+          fill(sp.color);
+          ellipse(0, 0, 18, 15);
+          // 小蘑菇帽
+          fill('#e06d53');
+          arc(0, -4, 22, 14, PI, TWO_PI);
+          fill('#ffffff');
+          circle(-4, -8, 3);
+          circle(4, -7, 2.5);
+          // 小眼睛
+          fill('#3d352e');
+          circle(-3, 0, 2.2);
+          circle(3, 0, 2.2);
+          clearShadow();
+          pop();
+        }}
+
+        // 3. 🎵 溪风风铃（大树树梢折纸小风铃 + 定时奏响风铃音）
+        if (miracleEffects.windChimes) {{
+          const chimeSpots = [
+            {{ x: 75, y: 195 }},
+            {{ x: 348, y: 205 }},
+            {{ x: 785, y: 192 }}
+          ];
+          for (let i = 0; i < chimeSpots.length; i++) {{
+            let cs = chimeSpots[i];
+            let swing = sin(frameCount * 0.06 + i * 1.5) * 0.25;
+            push();
+            translate(cs.x, cs.y);
+            rotate(swing);
+            stroke('#a39680');
+            strokeWeight(1.2);
+            line(0, 0, 0, 10);
+            noStroke();
+            fill('#90dbf4');
+            triangle(0, 8, -7, 20, 7, 20);
+            fill('#ffd166');
+            rect(-2, 20, 4, 9, 2);
+            pop();
+          }}
+          if (frameCount % 160 === 0 && bookMode === "LIVING") {{
+            const bellNotes = [783.99, 880.00, 1046.50, 1174.66];
+            playChimeNote(random(bellNotes), 0.7, 0.055);
+          }}
+        }}
       }}
 
       function renderLivingWorld(alphaScale) {{
@@ -700,6 +979,7 @@ def render():
         }}
 
         drawGroundBucket();
+        drawMiracleEffects();
         updateAndDrawHarvestParticles();
         updateAndDrawHarvestedItems();
 
@@ -722,12 +1002,16 @@ def render():
               !getClickedBird(mouseX, mouseY) &&
               !getClickedTreeCrown(mouseX, mouseY) &&
               !getClickedRipePlant(mouseX, mouseY) &&
+              !isPointOnWorkbench(mouseX, mouseY) &&
               !isPointOnGuideDialog(mouseX, mouseY) &&
               !isPointOnPageCurl(mouseX, mouseY) &&
               !isPointOnMuteButton(mouseX, mouseY)) {{
             sprite.pourWater();
           }}
         }}
+
+        // 底部剪纸花环工作台
+        drawCraftingWorkbench();
 
         sprite.update();
         sprite.display();
@@ -1075,6 +1359,10 @@ def render():
 
       // ================== 版本 A：童话沉浸版动态指引对话框 ==================
       function getCurrentGuideText() {{
+        if (customStoryTimer > 0 && customStoryText) {{
+          customStoryTimer--;
+          return customStoryText;
+        }}
         if (bookMode === "WEATHER") {{
           return "点选下方两个天气元素组合变化，收集飘落的天空能量！";
         }}
@@ -1087,11 +1375,11 @@ def render():
         if (sprite.hasBucket && !sprite.bucketHasWater) {{
           return "点一点蓝色的荷花池水面，盛满清凉的池水～";
         }}
-        if (harvestedFlowerCount + harvestedMushroomCount === 0 && gardenVitality < 0.35) {{
+        if (gardenVitality < 0.28) {{
           return "飞到花苗和蘑菇上空，按住鼠标浇灌它们长大吧！";
         }}
-        if (harvestedFlowerCount + harvestedMushroomCount < 2) {{
-          return "点一点盛开的花朵和蘑菇采摘，也能逗逗小青蛙哦！";
+        if (unlockedMiracles.size === 0) {{
+          return "把花朵、蘑菇、池水或树叶放入下方工作台，合成花环奇迹吧！";
         }}
         return "点击右下角的立体书折角，翻往云端的天气世界吧 ▸";
       }}
@@ -1113,7 +1401,6 @@ def render():
         image(dialogImg, 0, 0, dw, dh);
         clearShadow();
 
-        // 在对话框右侧米白纸张区域内排布童话指引文案
         fill('#5c5346');
         noStroke();
         textAlign(CENTER, CENTER);
@@ -1125,30 +1412,12 @@ def render():
       }}
 
       function drawTopHUD() {{
-        // 1. 绘制花仙子指引对话框（若已展开）
         drawFairyGuideDialog();
 
-        // 2. 左上角状态计数徽章（放在对话框下方 y: 112 避免重叠）
         let hy = (showGuideDialog && dialogImg) ? 114 : 16;
         let hh = 30;
 
-        if (bookMode === "LIVING" || bookMode === "TURNING_TO_LIVING") {{
-          if (harvestedFlowerCount > 0 || harvestedMushroomCount > 0) {{
-            push();
-            let bw = 122;
-            setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
-            noStroke();
-            fill(250, 245, 235, 225);
-            rect(18, hy, bw, hh, 15);
-            clearShadow();
-
-            fill('#6b6356');
-            textAlign(CENTER, CENTER);
-            textSize(11.5);
-            text(`🌸 ${{harvestedFlowerCount}}   🍄 ${{harvestedMushroomCount}}`, 18 + bw / 2, hy + hh / 2 + 0.5);
-            pop();
-          }}
-        }} else {{
+        if (bookMode === "WEATHER" || bookMode === "TURNING_TO_WEATHER") {{
           push();
           let bw = 146;
           setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
@@ -1164,7 +1433,6 @@ def render():
           pop();
         }}
 
-        // 3. 若用户关闭了对话框，右上角显示重新唤出“💬 指引”的小胶囊按钮
         if (!showGuideDialog && dialogImg) {{
           push();
           let hx = width - 196;
@@ -1184,7 +1452,6 @@ def render():
           pop();
         }}
 
-        // 4. 右上角静音开关
         push();
         let bx = width - 104;
         let by = 16;
@@ -1321,17 +1588,11 @@ def render():
         }});
 
         if (p.kind === 'flower') {{
-          harvestedFlowerCount++;
+          inv.flower++;
           playHarvestSound(false);
         }} else {{
-          harvestedMushroomCount++;
+          inv.mushroom++;
           playHarvestSound(true);
-        }}
-
-        let totalHarvested = harvestedFlowerCount + harvestedMushroomCount;
-        if (totalHarvested > 0 && totalHarvested % 5 === 0) {{
-          fairyBurstRing = 1.0;
-          playMilestoneFanfare();
         }}
 
         p.bloom = 0.08;
@@ -1432,6 +1693,7 @@ def render():
 
       function spawnTreeLeaves(cx, cy) {{
         playLeafRustleSound();
+        inv.leaf++;
         const leafCols = ['#8ac926', '#b5e48c', '#ffd166', '#99d98c'];
         for (let i = 0; i < 3; i++) {{
           fallingLeaves.push({{
@@ -1590,7 +1852,7 @@ def render():
           return;
         }}
 
-        if (isPointOnPageCurl(mouseX, mouseY)) {{
+        if (isPointOnPageCurl(mouseX, mouseY) || isPointOnWorkbench(mouseX, mouseY)) {{
           cursor(HAND);
           return;
         }}
@@ -1623,7 +1885,6 @@ def render():
           return;
         }}
 
-        // 点击花仙子指引对话框可收起；点击右上角“💬 指引”可重新展开
         if (isPointOnGuideDialog(mouseX, mouseY)) {{
           showGuideDialog = false;
           playChimeNote(523.25, 0.25, 0.06);
@@ -1676,6 +1937,22 @@ def render():
           playChimeNote(659.25, 0.6, 0.09, 0.12);
           playChimeNote(783.99, 0.8, 0.10, 0.24);
         }} else if (sceneState === "GARDEN_ACTIVE") {{
+          // 优先检测是否点击了底部剪纸花环工作台上的元素按钮
+          if (isPointOnWorkbench(mouseX, mouseY)) {{
+            for (let btn of CRAFT_ELEM_BTNS) {{
+              if (dist(mouseX, mouseY, btn.x, btn.y) < 18) {{
+                addElementToCraftSlot(btn.id);
+                return;
+              }}
+            }}
+            // 若点击已放入的单个槽位，可将元素退回库存
+            if (craftSlots.length === 1 && dist(mouseX, mouseY, WORKBENCH_X - 18, WORKBENCH_Y) < 16) {{
+              inv[craftSlots.pop()]++;
+              playChimeNote(440.0, 0.2, 0.06);
+            }}
+            return;
+          }}
+
           if (frog.isPointOnFrog(mouseX, mouseY)) {{
             frog.jumpToNextPad();
             return;
@@ -1709,6 +1986,7 @@ def render():
           if (sprite.hasBucket) {{
             if (isPointInPond(mouseX, mouseY)) {{
               sprite.scoopWater(mouseX, mouseY);
+              inv.water++;
               bloomNextWaterLily();
             }} else if (sprite.isPointOnBucket(mouseX, mouseY)) {{
               sprite.putBucketOnGround();
@@ -1719,6 +1997,7 @@ def render():
             if (isPointInPond(mouseX, mouseY)) {{
               ripples.push(new PaperRipple(mouseX, mouseY));
               playWaterDropSound(true);
+              inv.water++;
               bloomNextWaterLily();
             }} else if (groundBucket && dist(mouseX, mouseY, groundBucket.x, groundBucket.y) < 32) {{
               sprite.pickUpBucket();
@@ -1998,8 +2277,8 @@ def render():
           if (landX < 310) {{
             landX = max(landX, 320);
           }}
-          if (landX > 435 && landX < 595) {{
-            landX = landX < 515 ? 420 : 610;
+          if (landX > 410 && landX < 670) {{
+            landX = landX < 540 ? 355 : 685;
           }}
           let landY = constrain(pos.y + 130, 445, 515);
 
@@ -2075,7 +2354,13 @@ def render():
             this.bucketTilt = lerp(this.bucketTilt, sin(frameCount * 0.1) * 0.07, 0.15);
           }}
 
-          this.trail.push({{ x: this.x, y: this.y + 12, alpha: 175 }});
+          const trailColors = ['#ffafcc', '#ffd166', '#90dbf4', '#b5e48c'];
+          this.trail.push({{
+            x: this.x,
+            y: this.y + 12,
+            alpha: 185,
+            col: miracleEffects.flowerCrown ? random(trailColors) : '#fffbe1'
+          }});
           if (this.trail.length > 14) this.trail.shift();
         }}
         display() {{
@@ -2084,8 +2369,10 @@ def render():
           noStroke();
           for (let t of this.trail) {{
             t.alpha -= 11;
-            fill(255, 250, 225, max(0, t.alpha));
-            circle(t.x, t.y, map(t.alpha, 0, 175, 2, 7));
+            let tc = color(t.col);
+            tc.setAlpha(max(0, t.alpha));
+            fill(tc);
+            circle(t.x, t.y, map(t.alpha, 0, 185, 2, miracleEffects.flowerCrown ? 8.5 : 7));
           }}
 
           if (fairyBurstRing > 0.01) {{
@@ -2141,6 +2428,24 @@ def render():
           }} else {{
             fill('#fff9db');
             circle(0, 0, 40);
+          }}
+
+          // 合成【繁花花冠】后在花仙子头顶绘制立体折纸花冠
+          if (miracleEffects.flowerCrown) {{
+            push();
+            translate(0, -34);
+            noStroke();
+            fill('#ffafcc');
+            circle(-12, 2, 10);
+            fill('#ffd166');
+            circle(0, -2, 12);
+            fill('#90dbf4');
+            circle(12, 2, 10);
+            fill('#ffffff');
+            circle(-12, 2, 3.5);
+            circle(0, -2, 4);
+            circle(12, 2, 3.5);
+            pop();
           }}
 
           if (this.hasBucket && this.bucketScale > 0.05) {{
@@ -2279,6 +2584,13 @@ def render():
                 noStroke();
               }}
             }} else {{
+              // 合成【荧光夜光菇】后散发琥珀色呼吸光晕
+              if (miracleEffects.glowMushrooms) {{
+                noStroke();
+                fill(255, 215, 102, 75 + sin(frameCount * 0.1 + this.x) * 35);
+                circle(0, -18, 48);
+              }}
+
               let s = map(this.bloom, 0.2, 1, 0.15, 1.0);
               let sway = sin(frameCount * 0.03 + this.x) * 0.04 * this.bloom;
               rotate(sway);
