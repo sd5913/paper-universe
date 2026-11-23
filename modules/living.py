@@ -102,6 +102,7 @@ def render():
       let starImg = null;
       let fireflyImg = null;
       let owlImg = null;
+      let lanternImg = null;
 
       let flowerImgs = [];
       let mushroomImgs = [];
@@ -496,6 +497,7 @@ def render():
         if (STAR_IMG_DATA) starImg = loadImage(STAR_IMG_DATA);
         if (FIREFLY_IMG_DATA) fireflyImg = loadImage(FIREFLY_IMG_DATA);
         if (OWL_IMG_DATA) owlImg = loadImage(OWL_IMG_DATA);
+        if (LANTERN_IMG_DATA) lanternImg = loadImage(LANTERN_IMG_DATA);
 
         for (let uri of FLOWER_URIS) {{
           if (uri && uri.length > 0) flowerImgs.push(loadImage(uri));
