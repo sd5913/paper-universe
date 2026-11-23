@@ -23,10 +23,10 @@ def load_asset_data_uri(filenames: list[str]) -> str:
 
 
 def render():
-    """Display the Living World module with Day/Dusk Lighting, Parallax Depth & Pop-up Page Turn."""
+    """Display the Living World module with Custom Dusk Assets (Moon, Star, Firefly, Owl) & Pop-up Page Turn."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "Read the Flower Fairy's guide to begin: toggle Day/Dusk lighting, enjoy layered paper parallax depth, craft wonders at the workbench, and flip the corner to enter Weather World!"
+        "Read the Flower Fairy's guide to begin: toggle Day/Dusk lighting to meet the night owl, moon, stars, fireflies & shooting star wishes, craft wonders at the workbench, and flip the corner to enter Weather World!"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -44,6 +44,12 @@ def render():
     frog_uri = load_asset_data_uri(["frog.png", "frog.PNG"])
     lotus_uri = load_asset_data_uri(["lotus.png", "lotus.PNG"])
     dialog_uri = load_asset_data_uri(["dialog.png", "dialog.PNG", "dialog.jpg", "dialog.JPG"])
+
+    # Night / Dusk custom assets
+    moon_uri = load_asset_data_uri(["moon.png", "moon.PNG"])
+    star_uri = load_asset_data_uri(["star.png", "star.PNG"])
+    firefly_uri = load_asset_data_uri(["firefly.png", "firefly.PNG"])
+    owl_uri = load_asset_data_uri(["owl.png", "owl.PNG"])
 
     p5_html = f"""
     <!DOCTYPE html>
@@ -79,22 +85,39 @@ def render():
       const LOTUS_IMG_DATA = "{lotus_uri}";
       const DIALOG_IMG_DATA = "{dialog_uri}";
 
+      const MOON_IMG_DATA = "{moon_uri}";
+      const STAR_IMG_DATA = "{star_uri}";
+      const FIREFLY_IMG_DATA = "{firefly_uri}";
+      const OWL_IMG_DATA = "{owl_uri}";
+
       let bgImg = null;
       let fairyImg = null;
       let bucketImg = null;
       let frogImg = null;
       let lotusImg = null;
       let dialogImg = null;
+      let moonImg = null;
+      let starImg = null;
+      let fireflyImg = null;
+      let owlImg = null;
+
       let flowerImgs = [];
       let mushroomImgs = [];
       let birdImgs = [];
 
-      // ================== Feature 2: Day / Dusk Lighting State ==================
+      // ================== Day / Dusk Lighting & Night Elements ==================
       let isDuskMode = false;
       let duskBlend = 0; // Smoothly lerps between 0 (Day) and 1 (Dusk)
       let fireflies = [];
+      let nightStars = [];
+      let shootingStars = [];
+      let owlState = {{
+        x: 375,
+        y: 196,
+        bobTimer: 0
+      }};
 
-      // ================== Feature 4: Paper Parallax & Breeze Wave ==================
+      // ================== Paper Parallax & Breeze Wave ==================
       let parallaxX = 0;
       let breezeWaveX = -200;
 
@@ -112,7 +135,7 @@ def render():
         }},
         {{
           title: "📖 Hidden Wonders & Pop-up Flip (3/3)",
-          body: "Tap the frog, birds, tree crowns & stones, or switch Day/Dusk\nlighting at the top right for glowing fireflies & lanterns.\nClick the bottom-right page curl anytime to visit Weather World!"
+          body: "Tap the frog, birds, tree crowns & stones, or switch Day/Dusk\nmode at the top right to meet the moon, stars, owl & shooting stars.\nClick the bottom-right page curl anytime to visit Weather World!"
         }}
       ];
 
@@ -230,7 +253,7 @@ def render():
 
         let osc = ctx.createOscillator();
         let gain = ctx.createGain();
-        osc.type = "sine";
+        osc.type = isDuskMode ? "triangle" : "sine";
         osc.frequency.setValueAtTime(freq, now);
 
         gain.gain.setValueAtTime(0.0001, now);
@@ -241,6 +264,38 @@ def render():
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + duration + 0.02);
+      }}
+
+      function playOwlHootSound() {{
+        let ctx = ensureAudio();
+        if (!ctx) return;
+        // Soft two-note owl "hoo-hooo"
+        const hoots = [
+          {{ freq: 392.00, dur: 0.22, delay: 0.0 }},
+          {{ freq: 329.63, dur: 0.42, delay: 0.28 }}
+        ];
+        hoots.forEach(h => {{
+          let now = ctx.currentTime + h.delay;
+          let osc = ctx.createOscillator();
+          let gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(h.freq * 1.04, now);
+          osc.frequency.exponentialRampToValueAtTime(h.freq * 0.94, now + h.dur);
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.11, now + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + h.dur);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + h.dur + 0.03);
+        }});
+      }}
+
+      function playWishChimeSound() {{
+        const notes = [783.99, 987.77, 1174.66, 1567.98];
+        notes.forEach((f, i) => playChimeNote(f, 0.65, 0.09, i * 0.06));
       }}
 
       function playHarvestSound(isMushroom = false) {{
@@ -389,7 +444,21 @@ def render():
         return (dx * dx + dy * dy) <= 1.05;
       }}
 
-      // Top-right HUD buttons: Sound Toggle, Guide Button, Day/Dusk Toggle
+      function getClickedOwl(px, py) {{
+        if (duskBlend <= 0.45) return false;
+        let ox = owlState.x - parallaxX * 2.5;
+        let oy = owlState.y - 14;
+        return dist(px, py, ox, oy) < 28;
+      }}
+
+      function getClickedShootingStar(px, py) {{
+        if (duskBlend <= 0.45) return null;
+        for (let s of shootingStars) {{
+          if (!s.wished && dist(px, py, s.x, s.y) < 34) return s;
+        }}
+        return null;
+      }}
+
       function isPointOnMuteButton(px, py) {{
         return px >= width - 114 && px <= width - 16 && py >= 16 && py <= 46;
       }}
@@ -436,6 +505,11 @@ def render():
         if (LOTUS_IMG_DATA) lotusImg = loadImage(LOTUS_IMG_DATA);
         if (DIALOG_IMG_DATA) dialogImg = loadImage(DIALOG_IMG_DATA);
 
+        if (MOON_IMG_DATA) moonImg = loadImage(MOON_IMG_DATA);
+        if (STAR_IMG_DATA) starImg = loadImage(STAR_IMG_DATA);
+        if (FIREFLY_IMG_DATA) fireflyImg = loadImage(FIREFLY_IMG_DATA);
+        if (OWL_IMG_DATA) owlImg = loadImage(OWL_IMG_DATA);
+
         for (let uri of FLOWER_URIS) {{
           if (uri && uri.length > 0) flowerImgs.push(loadImage(uri));
         }}
@@ -454,15 +528,28 @@ def render():
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
         frog = new OrigamiFrog();
 
-        // Initialize 14 dusk fireflies
-        for (let i = 0; i < 14; i++) {{
+        // Initialize sky stars (strategically placed in upper sky gaps so they don't cover trees)
+        const starCoords = [
+          {{ x: 205, y: 72,  s: 0.95, p: 0.4 }},
+          {{ x: 268, y: 112, s: 0.72, p: 1.8 }},
+          {{ x: 318, y: 64,  s: 0.85, p: 3.1 }},
+          {{ x: 468, y: 78,  s: 0.90, p: 2.3 }},
+          {{ x: 525, y: 118, s: 0.68, p: 4.5 }},
+          {{ x: 632, y: 84,  s: 0.82, p: 1.1 }},
+          {{ x: 818, y: 92,  s: 0.76, p: 5.2 }}
+        ];
+        nightStars = starCoords;
+
+        // Initialize 12 dusk fireflies drifting in the meadow
+        for (let i = 0; i < 12; i++) {{
           fireflies.push({{
-            x: random(60, width - 60),
-            y: random(210, 510),
+            x: random(70, width - 70),
+            y: random(255, 495),
             phase: random(TWO_PI),
-            speed: random(0.015, 0.032),
-            rx: random(18, 42),
-            ry: random(10, 24)
+            speed: random(0.014, 0.028),
+            rx: random(18, 40),
+            ry: random(10, 22),
+            scale: random(0.75, 1.15)
           }});
         }}
 
@@ -538,7 +625,6 @@ def render():
         return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2);
       }}
 
-      // Helper: Returns breeze wave strength (0 to 1) at horizontal coordinate x
       function getBreezeStrengthAt(x) {{
         let d = abs(x - breezeWaveX);
         if (d > 140) return 0;
@@ -546,17 +632,28 @@ def render():
       }}
 
       function draw() {{
-        // Smooth Day/Dusk transition
         duskBlend = lerp(duskBlend, isDuskMode ? 1.0 : 0.0, 0.05);
 
-        // Smooth mouse parallax offset (-1 to +1)
         let normMouseX = constrain((mouseX - width / 2) / (width / 2), -1, 1);
         parallaxX = lerp(parallaxX, introModalActive ? 0 : normMouseX, 0.06);
 
-        // Periodic gentle breeze wave sweeping from left to right
         breezeWaveX += 3.2;
         if (breezeWaveX > width + 450) {{
           breezeWaveX = -220;
+        }}
+
+        // Spawn occasional shooting star in Dusk mode
+        if (bookMode === "LIVING" && !introModalActive && isDuskMode && duskBlend > 0.75) {{
+          if (shootingStars.length === 0 && frameCount % 480 === 120) {{
+            shootingStars.push({{
+              x: random(240, 620),
+              y: 42,
+              vx: random(4.2, 5.6),
+              vy: random(1.8, 2.5),
+              life: 95,
+              wished: false
+            }});
+          }}
         }}
 
         if (bookMode === "LIVING") {{
@@ -816,11 +913,105 @@ def render():
         pop();
       }}
 
-      // ================== Feature 2: Dusk Atmosphere & Fireflies ==================
+      // ================== Night / Dusk Sky & Pond Reflection (Drawn under tint/elements) ==================
+      function drawDuskSkyAndPondReflection() {{
+        if (duskBlend <= 0.01) return;
+
+        // 1. Custom Moon rising in the upper-left sky (x: 158, y: 82)
+        push();
+        let moonY = lerp(125, 82, duskBlend);
+        translate(158 - parallaxX * 1.5, moonY);
+        rotate(sin(frameCount * 0.02) * 0.04);
+        tint(255, duskBlend * 255);
+        setPaperShadow(12, 2, 4, 'rgba(40, 50, 80, 0.28)');
+        if (moonImg) {{
+          imageMode(CENTER);
+          let mH = 56;
+          let mW = mH * (moonImg.width / moonImg.height);
+          image(moonImg, 0, 0, mW, mH);
+        }} else {{
+          noStroke();
+          fill(255, 243, 185, duskBlend * 245);
+          arc(0, 0, 48, 48, -0.4, PI + 0.9, OPEN);
+        }}
+        noTint();
+        clearShadow();
+        pop();
+
+        // 2. Custom Twinkling Stars in the night sky
+        for (let st of nightStars) {{
+          let twinkle = 0.78 + sin(frameCount * 0.07 + st.p) * 0.22;
+          push();
+          translate(st.x - parallaxX * 1.8, st.y);
+          scale(st.s * twinkle);
+          rotate(sin(frameCount * 0.03 + st.p) * 0.12);
+          tint(255, duskBlend * (175 + twinkle * 80));
+          if (starImg) {{
+            imageMode(CENTER);
+            let sH = 26;
+            let sW = sH * (starImg.width / starImg.height);
+            image(starImg, 0, 0, sW, sH);
+          }} else {{
+            noStroke();
+            fill(255, 248, 200, duskBlend * (170 + twinkle * 85));
+            quad(0, -10, 3, 0, 0, 10, -3, 0);
+            quad(-10, 0, 0, 3, 10, 0, 0, -3);
+          }}
+          noTint();
+          pop();
+        }}
+
+        // 3. Soft shimmering moon reflection on the lotus pond surface
+        push();
+        translate(POND_X - 18 - parallaxX * 2.5, POND_Y + 6);
+        noStroke();
+        let rippleShift = sin(frameCount * 0.06) * 3;
+        fill(255, 243, 185, duskBlend * 52);
+        ellipse(rippleShift, 0, 38, 11);
+        ellipse(-rippleShift, 8, 26, 7);
+        pop();
+
+        // 4. Shooting star wish easter egg
+        for (let i = shootingStars.length - 1; i >= 0; i--) {{
+          let ss = shootingStars[i];
+          ss.x += ss.vx;
+          ss.y += ss.vy;
+          ss.life--;
+
+          if (ss.life <= 0 || ss.x > width + 40) {{
+            shootingStars.splice(i, 1);
+            continue;
+          }}
+
+          let alpha = map(ss.life, 0, 95, 0, 255) * duskBlend;
+          push();
+          stroke(255, 248, 205, alpha * 0.7);
+          strokeWeight(2.2);
+          line(ss.x, ss.y, ss.x - ss.vx * 8, ss.y - ss.vy * 8);
+          noStroke();
+
+          translate(ss.x, ss.y);
+          rotate(frameCount * 0.12);
+          tint(255, alpha);
+          if (starImg) {{
+            imageMode(CENTER);
+            let sH = 28;
+            let sW = sH * (starImg.width / starImg.height);
+            image(starImg, 0, 0, sW, sH);
+          }} else {{
+            fill(255, 245, 180, alpha);
+            circle(0, 0, 10);
+          }}
+          noTint();
+          pop();
+        }}
+      }}
+
+      // ================== Night Owl & Custom Fireflies (Clean, no large yellow circles) ==================
       function drawDuskAtmosphereOverlay() {{
         if (duskBlend <= 0.01) return;
 
-        // 1. Multiply deep twilight tint over paper background
+        // 1. Multiply twilight tint over background
         push();
         blendMode(MULTIPLY);
         noStroke();
@@ -829,7 +1020,44 @@ def render():
         rect(0, 0, width, height);
         pop();
 
-        // 2. Drifting dusk fireflies
+        // 2. Night Owl perched on the middle tree branch (x: 375, y: 196)
+        push();
+        let ox = owlState.x - parallaxX * 2.5;
+        let oy = owlState.y + lerp(16, 0, duskBlend);
+        let bobTilt = 0;
+        if (owlState.bobTimer > 0) {{
+          owlState.bobTimer--;
+          bobTilt = sin(owlState.bobTimer * 0.45) * 0.22;
+        }}
+        translate(ox, oy);
+        rotate(sin(frameCount * 0.03) * 0.04 + bobTilt);
+        scale(duskBlend);
+        tint(255, duskBlend * 255);
+        setPaperShadow(8, 2, 4, 'rgba(30, 35, 55, 0.3)');
+
+        if (owlImg) {{
+          imageMode(CENTER);
+          let oH = 46;
+          let oW = oH * (owlImg.width / owlImg.height);
+          image(owlImg, 0, -oH * 0.35, oW, oH);
+        }} else {{
+          noStroke();
+          fill('#a98467');
+          ellipse(0, -14, 26, 30);
+          fill('#f0ead2');
+          ellipse(0, -10, 16, 18);
+          fill('#ffd166');
+          circle(-5, -18, 7);
+          circle(5, -18, 7);
+          fill('#2b2d42');
+          circle(-5, -18, 3);
+          circle(5, -18, 3);
+        }}
+        noTint();
+        clearShadow();
+        pop();
+
+        // 3. Custom Fireflies drifting across the meadow
         for (let ff of fireflies) {{
           let fx = ff.x + cos(frameCount * ff.speed + ff.phase) * ff.rx - parallaxX * 4.0;
           let fy = ff.y + sin(frameCount * ff.speed * 1.3 + ff.phase) * ff.ry;
@@ -837,11 +1065,23 @@ def render():
 
           push();
           translate(fx, fy);
-          noStroke();
-          fill(215, 255, 130, duskBlend * (40 + pulse * 85));
-          circle(0, 0, 16 + pulse * 6);
-          fill(255, 255, 210, duskBlend * (140 + pulse * 115));
-          circle(0, 0, 4.5);
+          scale(ff.scale * (0.9 + pulse * 0.18));
+          rotate(sin(frameCount * 0.06 + ff.phase) * 0.2);
+
+          if (fireflyImg) {{
+            tint(255, duskBlend * (175 + pulse * 80));
+            imageMode(CENTER);
+            let fH = 26;
+            let fW = fH * (fireflyImg.width / fireflyImg.height);
+            image(fireflyImg, 0, 0, fW, fH);
+            noTint();
+          }} else {{
+            noStroke();
+            fill(215, 255, 130, duskBlend * (40 + pulse * 85));
+            circle(0, 0, 14 + pulse * 5);
+            fill(255, 255, 210, duskBlend * (140 + pulse * 115));
+            circle(0, 0, 4.5);
+          }}
           pop();
         }}
       }}
@@ -1044,7 +1284,10 @@ def render():
           background('#f7f2e7');
         }}
 
-        // Mid Layer (Pond, Stepping Stones, Water Lilies shifted by -parallaxX * 2.5 to match background pond)
+        // Moon, Stars, Pond Moon Reflection & Shooting Stars
+        drawDuskSkyAndPondReflection();
+
+        // Mid Layer (Pond, Stepping Stones, Water Lilies)
         push();
         translate(-parallaxX * 2.5, 0);
         drawDoorPortal();
@@ -1062,7 +1305,7 @@ def render():
         frog.display();
         pop();
 
-        // Foreground Layer (Grass Blades & Plants with stronger parallax depth -parallaxX * 4.5)
+        // Foreground Layer (Grass Blades & Plants with stronger parallax depth)
         push();
         translate(-parallaxX * 4.5, 0);
         for (let g of grassBlades) {{
@@ -1091,7 +1334,8 @@ def render():
           }}
         }}
 
-        if (gardenVitality > 0.45 && birds.length < 2 && frameCount % 90 === 0) {{
+        // Daytime birds fly away at Dusk, making way for the Night Owl
+        if (!isDuskMode && gardenVitality > 0.45 && birds.length < 2 && frameCount % 90 === 0) {{
           const treePerches = [
             {{ x: 112, y: 205 }},
             {{ x: 748, y: 195 }}
@@ -1118,21 +1362,26 @@ def render():
           b.display();
         }}
 
-        for (let bird of birds) {{
-          bird.update();
-          bird.display();
+        for (let i = birds.length - 1; i >= 0; i--) {{
+          birds[i].update();
+          birds[i].display();
+          if (isDuskMode && (birds[i].x < -45 || birds[i].x > width + 45)) {{
+            birds.splice(i, 1);
+          }}
         }}
 
         updateAndDrawFallingLeaves();
         updateAndDrawMusicNotes();
 
-        // Apply Dusk Twilight Overlay & Fireflies before HUD & Fairy
+        // Dusk Twilight Tint, Night Owl & Fireflies
         drawDuskAtmosphereOverlay();
 
         let pourInterval = miracleEffects.staminaBoostTimer > 0 ? 4 : 7;
         if (!introModalActive && bookMode === "LIVING" && sceneState === "GARDEN_ACTIVE" && sprite.hasBucket && sprite.bucketHasWater && mouseIsPressed && frameCount % pourInterval === 0) {{
           if (!isPointInPond(mouseX, mouseY) &&
               !frog.isPointOnFrog(mouseX, mouseY) &&
+              !getClickedOwl(mouseX, mouseY) &&
+              !getClickedShootingStar(mouseX, mouseY) &&
               !getClickedBird(mouseX, mouseY) &&
               !getClickedTreeCrown(mouseX, mouseY) &&
               !getClickedRipePlant(mouseX, mouseY) &&
@@ -2009,6 +2258,8 @@ def render():
           return;
         }}
         if (frog.isPointOnFrog(mouseX, mouseY) ||
+            getClickedOwl(mouseX, mouseY) ||
+            getClickedShootingStar(mouseX, mouseY) ||
             getClickedBird(mouseX, mouseY) ||
             getClickedTreeCrown(mouseX, mouseY) ||
             getClickedRipePlant(mouseX, mouseY)) {{
@@ -2052,14 +2303,12 @@ def render():
           return;
         }}
 
-        // Toggle Day / Dusk lighting mode
         if (isPointOnDuskButton(mouseX, mouseY)) {{
           isDuskMode = !isDuskMode;
           playChimeNote(isDuskMode ? 440.0 : 659.25, 0.45, 0.08);
           return;
         }}
 
-        // Re-open full guide modal anytime via top-right button
         if (isPointOnHelpButton(mouseX, mouseY)) {{
           introModalActive = true;
           introPageIndex = 0;
@@ -2099,6 +2348,32 @@ def render():
           pageTurnProgress = 0;
           popupProgress = 0;
           playPageFlipSound();
+          return;
+        }}
+
+        // Shooting star wish interaction in Dusk mode
+        let hitStar = getClickedShootingStar(mouseX, mouseY);
+        if (hitStar) {{
+          hitStar.wished = true;
+          hitStar.life = 0;
+          fairyBurstRing = 1.0;
+          playWishChimeSound();
+          const rewards = [
+            {{ id: 'flower', label: '🌸 Flower' }},
+            {{ id: 'mushroom', label: '🍄 Mushroom' }},
+            {{ id: 'water', label: '💧 Pond Water' }}
+          ];
+          let gift = random(rewards);
+          inv[gift.id]++;
+          showCraftToast(`🌠 Shooting Star Wish! Received +1 ${{gift.label}}!`);
+          return;
+        }}
+
+        // Night Owl interaction in Dusk mode
+        if (getClickedOwl(mouseX, mouseY)) {{
+          owlState.bobTimer = 26;
+          playOwlHootSound();
+          spawnBirdMusicNotes(owlState.x - parallaxX * 2.5, owlState.y - 10);
           return;
         }}
 
@@ -2526,12 +2801,17 @@ def render():
             this.bucketTilt = lerp(this.bucketTilt, sin(frameCount * 0.1) * 0.07, 0.15);
           }}
 
-          const trailColors = ['#ffafcc', '#ffd166', '#90dbf4', '#b5e48c'];
+          const dayTrailCols = ['#ffafcc', '#ffd166', '#90dbf4', '#b5e48c'];
+          const duskTrailCols = ['#bde0fe', '#fff3b0', '#cdb4db'];
+          let tCol = miracleEffects.flowerCrown
+            ? random(dayTrailCols)
+            : (isDuskMode ? random(duskTrailCols) : '#fffbe1');
+
           this.trail.push({{
             x: this.x,
             y: this.y + 12,
             alpha: 185,
-            col: miracleEffects.flowerCrown ? random(trailColors) : '#fffbe1'
+            col: tCol
           }});
           if (this.trail.length > 14) this.trail.shift();
         }}
@@ -2612,7 +2892,6 @@ def render():
             circle(0, 0, 40);
           }}
 
-          // Floral Wreath worn on the fairy's head
           if (miracleEffects.flowerCrown) {{
             push();
             translate(0, -34);
@@ -2697,7 +2976,11 @@ def render():
         display() {{
           push();
           noFill();
-          stroke(100, 180, 215, this.alpha);
+          if (duskBlend > 0.5) {{
+            stroke(220, 240, 255, this.alpha);
+          }} else {{
+            stroke(100, 180, 215, this.alpha);
+          }}
           strokeWeight(2.2);
           ellipse(this.x, this.y, this.r * 2, this.r * 0.45);
           pop();
@@ -2937,6 +3220,16 @@ def render():
           spawnBirdMusicNotes(this.x, this.y);
         }}
         update() {{
+          if (isDuskMode) {{
+            // Fly off-screen smoothly when night falls
+            this.perched = false;
+            let exitX = this.variant === 0 ? -60 : width + 60;
+            this.facing = exitX >= this.x ? 1 : -1;
+            this.x = lerp(this.x, exitX, 0.035);
+            this.y = lerp(this.y, 85, 0.025);
+            return;
+          }}
+
           let targetScreenX = this.tx - parallaxX * 2.5;
           if (!this.perched) {{
             this.x = lerp(this.x, targetScreenX, 0.032);
