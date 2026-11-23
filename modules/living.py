@@ -133,16 +133,20 @@ def render():
       let introPageIndex = 0;
       const INTRO_PAGES = [
         {{
-          title: "✨ Welcome to the Origami Meadow (1/3)",
-          body: "1. Tap the mushroom house door to wake the Flower Fairy.\n2. Pick up the watering can, scoop water from the lotus pond,\nand hold the mouse button over sprouts to make them bloom!"
+          title: "✨ Origami Meadow Guide (1/4)",
+          body: "1. Tap the mushroom door to wake the Flower Fairy.\n2. Pick up the watering can, scoop pond water,\nand hold mouse button over sprouts to bloom!"
         }},
         {{
-          title: "🌿 Nature Crafting Workbench (2/3)",
-          body: "Click blooming flowers, mushrooms & pond water to craft:\n🌸 + 🌸 = 💐 Floral Wreath (worn on the fairy's head)\n🌸 + 💧 = 🦋 Butterfly Swarm (summons more butterflies)\n🍄 + 🍄 = 🍄 Giant Mushroom (boosts fairy stamina & speed)"
+          title: "🌿 Nature Crafting (2/4)",
+          body: "Pick blooming flowers, mushrooms & water to craft:\n🌸 + 🌸 = 💐 Floral Wreath  |  🌸 + 💧 = 🦋 Butterflies\n🍄 + 🍄 = 🍄 Giant Mushroom (speed boost)"
         }},
         {{
-          title: "📖 Dusk Mode & Firefly Lantern (3/3)",
-          body: "Switch to 🌙 Dusk at the top right to meet the owl & fireflies.\nClick 5 glowing fireflies to light up the fairy's hand lantern!\nClick the bottom-right page curl anytime to visit Weather World."
+          title: "🌙 Dusk & Firefly Lantern (3/4)",
+          body: "Tap 🌙 Dusk at top right to meet the moon & owl.\nClick 5 glowing fireflies in the grass to light up\nthe Flower Fairy's hand-held paper lantern!"
+        }},
+        {{
+          title: "📖 Wonders & Page Flip (4/4)",
+          body: "Tap the frog, birds, trees & musical stones.\nClick the bottom-right page curl anytime\nto flip into the pop-up Weather World!"
         }}
       ];
 
@@ -898,16 +902,16 @@ def render():
         fill('#4a4238');
         noStroke();
         textAlign(CENTER, CENTER);
-        textSize(13.5);
+        textSize(12.5);
         textStyle(BOLD);
-        text(page.title, 92, -38);
+        text(page.title, 92, -32);
 
         textStyle(NORMAL);
         fill('#5c5346');
-        textSize(11.5);
-        textLeading(18.5);
+        textSize(10.5);
+        textLeading(15.5);
         rectMode(CENTER);
-        text(page.body, 92, 16, 350, 88);
+        text(page.body, 92, 12, 315, 68);
 
         if (introPageIndex > 0) {{
           let prevX = -42;
@@ -1853,17 +1857,19 @@ def render():
         if (craftToastTimer > 0 && craftToastText && bookMode === "LIVING") {{
           craftToastTimer--;
           push();
+          textSize(11);
+          let pillW = max(240, textWidth(craftToastText) + 36);
+          let pillX = constrain(width / 2 - 58, 162 + pillW / 2, width - 312 - pillW / 2);
           setPaperShadow(8, 1, 3, 'rgba(60, 50, 40, 0.16)');
           noStroke();
-          fill(250, 245, 235, 238);
+          fill(250, 245, 235, 242);
           rectMode(CENTER);
-          rect(width / 2 - 45, 31, 320, 32, 16);
+          rect(pillX, 31, pillW, 32, 16);
           clearShadow();
 
           fill('#5c5346');
           textAlign(CENTER, CENTER);
-          textSize(11);
-          text(craftToastText, width / 2 - 45, 31.5);
+          text(craftToastText, pillX, 31.5);
           pop();
         }}
 
