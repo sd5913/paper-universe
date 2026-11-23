@@ -360,14 +360,14 @@
       function isPointOnModalPrevBtn(px, py) {
         if (!introModalActive || introPageIndex === 0) return false;
         let bx = width / 2 - 42;
-        let by = height / 2 - 8 + 68;
+        let by = height / 2 - 8 + 78;
         return abs(px - bx) <= 46 && abs(py - by) <= 18;
       }
 
       function isPointOnModalNextBtn(px, py) {
         if (!introModalActive) return false;
-        let bx = width / 2 + 216;
-        let by = height / 2 - 8 + 68;
+        let bx = width / 2 + 212;
+        let by = height / 2 - 8 + 78;
         return abs(px - bx) <= 56 && abs(py - by) <= 18;
       }
 
@@ -558,7 +558,7 @@
         updateCursorStyle();
       }
 
-      // ================== Pre-start Full Guide Modal (with Prev & Next buttons) ==================
+      // ================== Pre-start Full Guide Modal (Shifted down to avoid top leaves) ==================
       function drawPreStartGuideModal() {
         push();
         noStroke();
@@ -588,57 +588,57 @@
 
         let page = INTRO_PAGES[introPageIndex];
 
-        // Title
+        // Title shifted down & slightly left (x=92, y=-38) so "(2/3)" clears the top-right leaves
         fill('#4a4238');
         noStroke();
         textAlign(CENTER, CENTER);
-        textSize(14);
+        textSize(13.5);
         textStyle(BOLD);
-        text(page.title, 102, -54);
+        text(page.title, 92, -38);
 
-        // Body text strictly constrained within the parchment area
+        // Body text shifted down (x=92, y=16) inside the widest parchment zone
         textStyle(NORMAL);
         fill('#5c5346');
         textSize(11.5);
-        textLeading(19);
+        textLeading(18.5);
         rectMode(CENTER);
-        text(page.body, 102, 2, 355, 92);
+        text(page.body, 92, 16, 350, 88);
 
-        // Previous button (shown on pages 2 & 3)
+        // Previous button (y=78)
         if (introPageIndex > 0) {
           let prevX = -42;
-          let prevY = 68;
+          let prevY = 78;
           setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.16)');
           fill('#efe6d5');
           rectMode(CENTER);
-          rect(prevX, prevY, 88, 30, 15);
+          rect(prevX, prevY, 84, 28, 14);
           clearShadow();
 
           fill('#5c5346');
-          textSize(12);
+          textSize(11.5);
           textStyle(BOLD);
           text("◂ Prev", prevX, prevY + 0.5);
           textStyle(NORMAL);
         }
 
-        // Center pagination dots
+        // Center pagination dots (y=78)
         for (let i = 0; i < INTRO_PAGES.length; i++) {
           fill(i === introPageIndex ? '#72ac53' : '#d6ccb8');
-          circle(72 + i * 16, 68, i === introPageIndex ? 8 : 6);
+          circle(72 + i * 16, 78, i === introPageIndex ? 7.5 : 5.5);
         }
 
-        // Next / Explore button
-        let btnX = 216;
-        let btnY = 68;
+        // Next / Explore button (y=78)
+        let btnX = 212;
+        let btnY = 78;
         let isLast = introPageIndex === INTRO_PAGES.length - 1;
         setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.2)');
         fill(isLast ? '#72ac53' : '#ffd166');
         rectMode(CENTER);
-        rect(btnX, btnY, 106, 30, 15);
+        rect(btnX, btnY, 102, 28, 14);
         clearShadow();
 
         fill(isLast ? '#ffffff' : '#4a4238');
-        textSize(12);
+        textSize(11.5);
         textStyle(BOLD);
         text(isLast ? "Explore ✨" : "Next ▸", btnX, btnY + 0.5);
         textStyle(NORMAL);
