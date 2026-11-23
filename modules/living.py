@@ -591,10 +591,9 @@ def render():
         updateCursorStyle();
       }}
 
-      // ================== 开场前完整说明弹窗（花仙子剪纸对话框版） ==================
+      // ================== 开场前完整说明弹窗（严格限制在对话框米白区域内） ==================
       function drawPreStartGuideModal() {{
         push();
-        // 1. 柔和暖纸色半透明遮罩，聚焦用户视线
         noStroke();
         fill(45, 40, 35, 118);
         rect(0, 0, width, height);
@@ -622,19 +621,21 @@ def render():
 
         let page = INTRO_PAGES[introPageIndex];
 
-        // 标题与正文排布在对话框右侧米白纸张区域
+        // 标题（居中对齐右侧米白区域 x=102, y=-54）
         fill('#4a4238');
         noStroke();
         textAlign(CENTER, CENTER);
-        textSize(15.5);
+        textSize(14.5);
         textStyle(BOLD);
-        text(page.title, 96, -54);
+        text(page.title, 102, -54);
 
+        // 正文（用 rectMode(CENTER) 严格锁定在 355x92 的米白纸张安全区内，绝不溢出边框）
         textStyle(NORMAL);
         fill('#5c5346');
-        textSize(13);
-        textLeading(22);
-        text(page.body, 96, 8);
+        textSize(12);
+        textLeading(20);
+        rectMode(CENTER);
+        text(page.body, 102, 4, 355, 92);
 
         // 底部页码点指示器
         for (let i = 0; i < INTRO_PAGES.length; i++) {{
