@@ -26,7 +26,7 @@ def render():
     """Display the Living World module with Origami Pop-up Page Turn to Weather World."""
     st.header("🌱 Living World: The Origami Meadow")
     st.write(
-        "点击木门唤醒花仙子，体验花园生态互动；随时点击右下角的【立体书折角】，即可伴随手工卡纸翻页动画与 Pop-up 弹出机关翻入【Weather World 天气世界】！"
+        "点击木门唤醒花仙子，跟随花仙子提示对话框体验花园生态互动；随时点击右下角的【立体书折角】，即可翻入【Weather World 天气世界】！"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -43,6 +43,7 @@ def render():
     b2_uri = load_asset_data_uri(["bird2.png", "bird2.PNG"])
     frog_uri = load_asset_data_uri(["frog.png", "frog.PNG"])
     lotus_uri = load_asset_data_uri(["lotus.png", "lotus.PNG"])
+    dialog_uri = load_asset_data_uri(["dialog.png", "dialog.PNG", "dialog.jpg", "dialog.JPG"])
 
     p5_html = f"""
     <!DOCTYPE html>
@@ -75,15 +76,20 @@ def render():
       const BIRD_URIS = ["{b1_uri}", "{b2_uri}"];
       const FROG_IMG_DATA = "{frog_uri}";
       const LOTUS_IMG_DATA = "{lotus_uri}";
+      const DIALOG_IMG_DATA = "{dialog_uri}";
 
       let bgImg = null;
       let fairyImg = null;
       let bucketImg = null;
       let frogImg = null;
       let lotusImg = null;
+      let dialogImg = null;
       let flowerImgs = [];
       let mushroomImgs = [];
       let birdImgs = [];
+
+      // 版本 A：花仙子动态指引气泡开关
+      let showGuideDialog = true;
 
       let bookMode = "LIVING";
       let pageTurnProgress = 0;
@@ -339,6 +345,15 @@ def render():
         return px >= width - 104 && px <= width - 16 && py >= 16 && py <= 46;
       }}
 
+      // 右上角提示气泡唤出小按钮（当用户手动关闭对话框后显示）
+      function isPointOnHintToggle(px, py) {{
+        return !showGuideDialog && px >= width - 196 && px <= width - 112 && py >= 16 && py <= 46;
+      }}
+
+      function isPointOnGuideDialog(px, py) {{
+        return showGuideDialog && dialogImg && abs(px - 260) <= 190 && abs(py - 56) <= 50;
+      }}
+
       function isPointOnPageCurl(px, py) {{
         return px >= width - 125 && py >= height - 115;
       }}
@@ -353,6 +368,7 @@ def render():
         if (BUCKET_IMG_DATA) bucketImg = loadImage(BUCKET_IMG_DATA);
         if (FROG_IMG_DATA) frogImg = loadImage(FROG_IMG_DATA);
         if (LOTUS_IMG_DATA) lotusImg = loadImage(LOTUS_IMG_DATA);
+        if (DIALOG_IMG_DATA) dialogImg = loadImage(DIALOG_IMG_DATA);
 
         for (let uri of FLOWER_URIS) {{
           if (uri && uri.length > 0) flowerImgs.push(loadImage(uri));
@@ -706,6 +722,7 @@ def render():
               !getClickedBird(mouseX, mouseY) &&
               !getClickedTreeCrown(mouseX, mouseY) &&
               !getClickedRipePlant(mouseX, mouseY) &&
+              !isPointOnGuideDialog(mouseX, mouseY) &&
               !isPointOnPageCurl(mouseX, mouseY) &&
               !isPointOnMuteButton(mouseX, mouseY)) {{
             sprite.pourWater();
@@ -1047,17 +1064,72 @@ def render():
           noStroke();
           fill(250, 245, 235, 225);
           rectMode(CENTER);
-          rect(width / 2, 72, 420, 32, 16);
+          rect(width / 2, 118, 420, 30, 15);
           fill('#6b6356');
           textAlign(CENTER, CENTER);
           textSize(12);
-          text(comboBannerText, width / 2, 73);
+          text(comboBannerText, width / 2, 119);
           pop();
         }}
       }}
 
+      // ================== 版本 A：童话沉浸版动态指引对话框 ==================
+      function getCurrentGuideText() {{
+        if (bookMode === "WEATHER") {{
+          return "点选下方两个天气元素组合变化，收集飘落的天空能量！";
+        }}
+        if (sceneState === "HOUSE_CLOSED") {{
+          return "轻敲蘑菇屋的木门，唤醒沉睡的花仙子吧～";
+        }}
+        if (!sprite.hasBucket && !hasPickedBucketOnce) {{
+          return "拾起草地上的小水壶，去荷花池里舀一瓢水吧！";
+        }}
+        if (sprite.hasBucket && !sprite.bucketHasWater) {{
+          return "点一点蓝色的荷花池水面，盛满清凉的池水～";
+        }}
+        if (harvestedFlowerCount + harvestedMushroomCount === 0 && gardenVitality < 0.35) {{
+          return "飞到花苗和蘑菇上空，按住鼠标浇灌它们长大吧！";
+        }}
+        if (harvestedFlowerCount + harvestedMushroomCount < 2) {{
+          return "点一点盛开的花朵和蘑菇采摘，也能逗逗小青蛙哦！";
+        }}
+        return "点击右下角的立体书折角，翻往云端的天气世界吧 ▸";
+      }}
+
+      function drawFairyGuideDialog() {{
+        if (!showGuideDialog || !dialogImg) return;
+        if (bookMode === "TURNING_TO_WEATHER" || bookMode === "TURNING_TO_LIVING") return;
+
+        let dx = 260;
+        let dy = 56;
+        let dw = 385;
+        let dh = dw * (dialogImg.height / dialogImg.width);
+        let floatY = sin(frameCount * 0.05) * 2.2;
+
+        push();
+        translate(dx, dy + floatY);
+        setPaperShadow(10, 2, 4, 'rgba(60, 50, 40, 0.18)');
+        imageMode(CENTER);
+        image(dialogImg, 0, 0, dw, dh);
+        clearShadow();
+
+        // 在对话框右侧米白纸张区域内排布童话指引文案
+        fill('#5c5346');
+        noStroke();
+        textAlign(CENTER, CENTER);
+        textSize(12);
+        textLeading(18);
+        rectMode(CENTER);
+        text(getCurrentGuideText(), 56, 2, 210, 68);
+        pop();
+      }}
+
       function drawTopHUD() {{
-        let hy = 16;
+        // 1. 绘制花仙子指引对话框（若已展开）
+        drawFairyGuideDialog();
+
+        // 2. 左上角状态计数徽章（放在对话框下方 y: 112 避免重叠）
+        let hy = (showGuideDialog && dialogImg) ? 114 : 16;
         let hh = 30;
 
         if (bookMode === "LIVING" || bookMode === "TURNING_TO_LIVING") {{
@@ -1092,6 +1164,27 @@ def render():
           pop();
         }}
 
+        // 3. 若用户关闭了对话框，右上角显示重新唤出“💬 指引”的小胶囊按钮
+        if (!showGuideDialog && dialogImg) {{
+          push();
+          let hx = width - 196;
+          let hby = 16;
+          let hbw = 82;
+          let hbh = 30;
+          setPaperShadow(6, 1, 2, 'rgba(60, 50, 40, 0.14)');
+          noStroke();
+          fill(250, 245, 235, 225);
+          rect(hx, hby, hbw, hbh, 15);
+          clearShadow();
+
+          fill('#6b6356');
+          textAlign(CENTER, CENTER);
+          textSize(12);
+          text("💬 指引", hx + hbw / 2, hby + hbh / 2 + 1);
+          pop();
+        }}
+
+        // 4. 右上角静音开关
         push();
         let bx = width - 104;
         let by = 16;
@@ -1466,7 +1559,9 @@ def render():
       }}
 
       function updateCursorStyle() {{
-        if (isPointOnMuteButton(mouseX, mouseY)) {{
+        if (isPointOnMuteButton(mouseX, mouseY) ||
+            isPointOnHintToggle(mouseX, mouseY) ||
+            isPointOnGuideDialog(mouseX, mouseY)) {{
           cursor(HAND);
           return;
         }}
@@ -1525,6 +1620,18 @@ def render():
         if (isPointOnMuteButton(mouseX, mouseY)) {{
           soundEnabled = !soundEnabled;
           if (soundEnabled) playChimeNote(659.25, 0.3, 0.08);
+          return;
+        }}
+
+        // 点击花仙子指引对话框可收起；点击右上角“💬 指引”可重新展开
+        if (isPointOnGuideDialog(mouseX, mouseY)) {{
+          showGuideDialog = false;
+          playChimeNote(523.25, 0.25, 0.06);
+          return;
+        }}
+        if (isPointOnHintToggle(mouseX, mouseY)) {{
+          showGuideDialog = true;
+          playChimeNote(659.25, 0.28, 0.07);
           return;
         }}
 
