@@ -1,12 +1,9 @@
 
-const worldCards = document.querySelectorAll(".world-card");
+// The homepage uses a normal link to open book.html.
+// This script adds a small visual response before navigation.
 
-worldCards.forEach((card) => {
+const bookLink = document.querySelector(".book-link");
 
-    card.addEventListener("click", () => {
-
-        card.classList.add("selected");
-
-    });
-
+bookLink.addEventListener("click", () => {
+    bookLink.classList.add("opening");
 });

@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paper Universe - Chapters</title>
+    <link rel="stylesheet" href="css/book.css">
+</head>
+
+<body>
+
+    <main class="book-screen">
+
+        <header class="book-header">
+            <a href="index.html" class="home-link">← HOME</a>
+            <span>PAPER UNIVERSE</span>
+            <span class="page-counter" id="pageCounter">01 / 03</span>
+        </header>
+
+        <section class="book-stage">
+
+            <div class="storybook" id="storybook">
+
+                <!-- Left page -->
+                <div class="left-page">
+                    <div class="page-inner">
+                        <span class="small-label">A NEW ADVENTURE</span>
+                        <h1 id="chapterNumber">CHAPTER 01</h1>
+                        <div class="page-divider">✦ ✧ ✦</div>
+                        <h2 id="chapterTitle">Living World</h2>
+                        <p id="chapterDescription">
+                            Discover a little world where plants grow,
+                            nature responds, and tiny wonders come to life.
+                        </p>
+                        <span class="page-note">Turn the page to explore more.</span>
+                    </div>
+                </div>
+
+                <!-- Right page -->
+                <div class="right-page">
+                    <div class="scene" id="chapterScene">
+                        <div class="scene-sun"></div>
+                        <div class="scene-cloud cloud-a"></div>
+                        <div class="scene-cloud cloud-b"></div>
+                        <div class="scene-hill hill-back"></div>
+                        <div class="scene-hill hill-front"></div>
+                        <div class="scene-tree tree-a">🌳</div>
+                        <div class="scene-tree tree-b">🌲</div>
+                        <div class="scene-flower">✿</div>
+                        <div class="scene-caption" id="sceneCaption">
+                            A little garden awaits...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Animated page -->
+                <div class="turn-page" id="turnPage">
+                    <div class="turn-front"></div>
+                    <div class="turn-back"></div>
+                </div>
+
+            </div>
+
+        </section>
+
+        <section class="book-controls">
+            <button id="prevButton" class="nav-button">
+                ← Previous
+            </button>
+
+            <button id="enterButton" class="enter-button">
+                ENTER CHAPTER →
+            </button>
+
+            <button id="nextButton" class="nav-button">
+                Next Page →
+            </button>
+        </section>
+
+        <footer class="book-footer">
+            Every page opens a new little world.
+        </footer>
+
+    </main>
+
+    <script src="js/book.js"></script>
+
+</body>
+</html>
