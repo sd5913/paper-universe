@@ -50,6 +50,7 @@ def render():
     star_uri = load_asset_data_uri(["star.png", "star.PNG"])
     firefly_uri = load_asset_data_uri(["firefly.png", "firefly.PNG"])
     owl_uri = load_asset_data_uri(["owl.png", "owl.PNG"])
+    lantern_uri = load_asset_data_uri(["lantern.png", "lantern.PNG", "lantern.jpg", "lantern.JPG"])
 
     p5_html = f"""
     <!DOCTYPE html>
@@ -89,6 +90,7 @@ def render():
       const STAR_IMG_DATA = "{star_uri}";
       const FIREFLY_IMG_DATA = "{firefly_uri}";
       const OWL_IMG_DATA = "{owl_uri}";
+      const LANTERN_IMG_DATA = "{lantern_uri}";
 
       let bgImg = null;
       let fairyImg = null;
