@@ -97,8 +97,11 @@ def render():
         }}
         canvas {{
           display: block;
-          border-radius: 14px;
-          box-shadow: 0 8px 24px rgba(60, 50, 40, 0.14);
+          width: 100vw !important;
+          height: 100vh !important;
+          border: 0;
+          border-radius: 0;
+          box-shadow: none;
         }}
       </style>
     </head>
