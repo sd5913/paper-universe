@@ -24,37 +24,9 @@ def load_asset_data_uri(filenames: list[str]) -> str:
 
 def render():
     """Display the Living World module with Custom Dusk Assets & Firefly Lantern Catching."""
-
-    st.markdown(
-        """
-        <style>
-        header[data-testid="stHeader"],
-        footer,
-        #MainMenu {
-            display: none !important;
-        }
-
-        .block-container {
-            width: 100vw !important;
-            max-width: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        [data-testid="stVerticalBlock"] {
-            gap: 0 !important;
-        }
-
-        iframe[title="streamlit.components.v1.html"] {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            border: 0 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
+    st.header("🌱 Living World: The Origami Meadow")
+    st.write(
+        "Read the Flower Fairy's guide to begin: toggle Day/Dusk lighting to catch 5 fireflies and light the fairy's lantern, craft wonders at the workbench, and flip the corner to enter Weather World!"
     )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
@@ -89,8 +61,6 @@ def render():
       <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
       <style>
         html, body {{
-          width: 100%;
-          height: 100%;
           margin: 0;
           padding: 0;
           overflow: hidden;
@@ -99,11 +69,8 @@ def render():
         }}
         canvas {{
           display: block;
-          width: 100vw !important;
-          height: 100vh !important;
-          border: 0;
-          border-radius: 0;
-          box-shadow: none;
+          border-radius: 14px;
+          box-shadow: 0 8px 24px rgba(60, 50, 40, 0.14);
         }}
       </style>
     </head>
@@ -3489,8 +3456,4 @@ def render():
     </html>
     """
 
-    components.html(
-    p5_html,
-    height=1080,
-    scrolling=False,
-)
+    components.html(p5_html, height=580)
