@@ -3489,4 +3489,8 @@ def render():
     </html>
     """
 
-    components.html(p5_html, height=580)
+    components.html(
+    p5_html,
+    height=1080,
+    scrolling=False,
+)
