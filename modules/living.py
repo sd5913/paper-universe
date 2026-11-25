@@ -89,6 +89,8 @@ def render():
       <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
       <style>
         html, body {{
+          width: 100%;
+          height: 100%;
           margin: 0;
           padding: 0;
           overflow: hidden;
