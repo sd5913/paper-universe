@@ -7,10 +7,16 @@ st.set_page_config(
     page_title="Paper Universe",
     page_icon="🌸",
     layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-st.title("🌸 Paper Universe")
-st.write("An interactive paper-cut collage world.")
+st.markdown("""
+<style>
+header[data-testid="stHeader"], [data-testid="stToolbar"] { display: none !important; }
+.block-container { padding: 0 !important; margin: 0 !important; max-width: 100vw !important; }
+iframe { width: 100vw !important; height: 100vh !important; border: none !important; display: block !important; }
+</style>
+""", unsafe_allow_html=True)
 
 st.sidebar.title("🌍 Explore Worlds")
 
