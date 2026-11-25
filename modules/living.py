@@ -600,7 +600,7 @@ def render():
       }}
 
       function setup() {{
-        createCanvas(860, 560);
+        createCanvas(1008, 567);
         angleMode(RADIANS);
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
