@@ -1,6 +1,4 @@
-
 import streamlit as st
-
 from modules import weather, living, secret, experience
 
 st.set_page_config(
@@ -12,42 +10,21 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-header[data-testid="stHeader"], [data-testid="stToolbar"] { display: none !important; }
-.block-container { padding: 0 !important; margin: 0 !important; max-width: 100vw !important; }
-iframe { width: 100vw !important; height: 100vh !important; border: none !important; display: block !important; }
+header[data-testid="stHeader"], [data-testid="stToolbar"], section[data-testid="stSidebar"] {
+    display: none !important;
+}
+.block-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100vw !important;
+}
+iframe {
+    width: 100vw !important;
+    height: 100vh !important;
+    border: none !important;
+    display: block !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.sidebar.title("🌍 Explore Worlds")
-
-world = st.sidebar.radio(
-    "Choose a world:",
-    [
-        "Home",
-        "Weather World",
-        "Living World",
-        "Secret World",
-        "World Experience",
-    ],
-)
-
-if world == "Home":
-    st.header("Welcome to Paper Universe")
-    st.write(
-        "Explore different elements, discover hidden reactions, "
-        "and create your own playful world."
-    )
-
-    st.info("Choose a world from the sidebar to begin.")
-
-elif world == "Weather World":
-    weather.render()
-
-elif world == "Living World":
-    living.render()
-
-elif world == "Secret World":
-    secret.render()
-
-elif world == "World Experience":
-    experience.render()
+living.render()
