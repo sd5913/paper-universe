@@ -64,12 +64,17 @@ def render():
           margin: 0;
           padding: 0;
           overflow: hidden;
+          display: flex; justify-content: center; align-items: center;
           background: #f6f1e7;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }}
         canvas {{
           display: block;
-          border-radius: 14px;
+          width: 100vw !important;
+          height: 56.25vw !important;
+          max-height: 100vh !important;
+          max-width: 177.78vh !important;
+          border-radius: 0px;
           box-shadow: 0 8px 24px rgba(60, 50, 40, 0.14);
         }}
       </style>
@@ -573,6 +578,7 @@ def render():
 
       function setup() {{
         createCanvas(860, 560);
+        pixelDensity(2);
         angleMode(RADIANS);
 
         sprite = new OrigamiSprite(DOOR_X, DOOR_Y);
@@ -3456,4 +3462,4 @@ def render():
     </html>
     """
 
-    components.html(p5_html, height=580)
+    components.html(p5_html, height=1080, scrolling=False)
