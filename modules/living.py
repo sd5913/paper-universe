@@ -24,10 +24,6 @@ def load_asset_data_uri(filenames: list[str]) -> str:
 
 def render():
     """Display the Living World module with Custom Dusk Assets & Firefly Lantern Catching."""
-    st.header("🌱 Living World: The Origami Meadow")
-    st.write(
-        "Read the Flower Fairy's guide to begin: toggle Day/Dusk lighting to catch 5 fireflies and light the fairy's lantern, craft wonders at the workbench, and flip the corner to enter Weather World!"
-    )
 
     bg_data_uri = load_asset_data_uri(["bg.jpg", "bg.JPG", "bg.png", "bg.PNG"])
     fairy_data_uri = load_asset_data_uri(["fairy.PNG", "fairy.png"])
