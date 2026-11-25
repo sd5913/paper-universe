@@ -134,19 +134,19 @@ def render():
       const INTRO_PAGES = [
         {{
           title: "✨ Origami Meadow Guide (1/4)",
-          body: "1. Tap the mushroom door to wake the Flower Fairy.\n2. Pick up the watering can, scoop pond water,\nand hold mouse button over sprouts to bloom!"
+          body: "1. Tap the mushroom door to wake the Flower Fairy.\\n2. Pick up the watering can, scoop pond water,\\nand hold mouse button over sprouts to bloom!"
         }},
         {{
           title: "🌿 Nature Crafting (2/4)",
-          body: "Pick blooming flowers, mushrooms & water to craft:\n🌸 + 🌸 = 💐 Floral Wreath  |  🌸 + 💧 = 🦋 Butterflies\n🍄 + 🍄 = 🍄 Giant Mushroom (speed boost)"
+          body: "Pick blooming flowers, mushrooms & water to craft:\\n🌸 + 🌸 = 💐 Floral Wreath  |  🌸 + 💧 = 🦋 Butterflies\\n🍄 + 🍄 = 🍄 Giant Mushroom (speed boost)"
         }},
         {{
           title: "🌙 Dusk & Firefly Lantern (3/4)",
-          body: "Tap 🌙 Dusk at top right to meet the moon & owl.\nClick 5 glowing fireflies in the grass to light up\nthe Flower Fairy's hand-held paper lantern!"
+          body: "Tap 🌙 Dusk at top right to meet the moon & owl.\\nClick 5 glowing fireflies in the grass to light up\\nthe Flower Fairy's hand-held paper lantern!"
         }},
         {{
           title: "📖 Wonders & Page Flip (4/4)",
-          body: "Tap the frog, birds, trees & musical stones.\nClick the bottom-right page curl anytime\nto flip into the pop-up Weather World!"
+          body: "Tap the frog, birds, trees & musical stones.\\nClick the bottom-right page curl anytime\\nto flip into the pop-up Weather World!"
         }}
       ];
 
