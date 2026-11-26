@@ -1,6 +1,6 @@
 # 🌸 Paper Universe — Interactive Pop-Up World
 
-**Paper Universe** is an interactive, multi-module digital pop-up book and paper-cut collage experience built with **Python**, **Streamlit**, **HTML5/CSS3**, **JavaScript (ES6+)**, and **p5.js**[cite: 1, 8]. Designed with a warm, tactile aesthetic and zero-clutter full-bleed framing, the project transforms a standard browser viewport into a handcrafted miniature ecosystem where gentle environmental interactions bring layered paper worlds to life.
+**Paper Universe** is an interactive, multi-module digital pop-up book and paper-cut collage experience built with **Python**, **Streamlit**, **HTML5/CSS3**, **JavaScript (ES6+)**, and **p5.js**. Designed with a warm, tactile aesthetic and zero-clutter full-bleed framing, the project transforms a standard browser viewport into a handcrafted miniature ecosystem where gentle environmental interactions bring layered paper worlds to life.
 
 > **Exhibition Display Mode:** Optimized for **1920 × 1080 (16:9)** full-bleed presentation at Retina sharpness (`pixelDensity(2)`).
 
@@ -22,21 +22,21 @@
 
 | Module | File | Description |
 | :--- | :--- | :--- |
-| **Living World** *(Flagship)* | `modules/living.py`[cite: 1] | **The Origami Meadow** — Nurture sprouts, wake the Flower Fairy, toggle Day/Dusk lighting, catch fireflies, and craft ecological wonders. |
-| **Weather World** | `modules/weather.py`[cite: 1] | Atmospheric paper-cut climate simulation triggered via page-corner flip from Living World. |
-| **Secret World** | `modules/secret.py`[cite: 1] | Hidden interactive paper diorama layer unlocked through exploration. |
-| **World Experience** | `modules/experience.py`[cite: 1] | Unified multi-sensory narrative journey across the Paper Universe. |
+| **Living World** *(Flagship)* | `modules/living.py` | **The Origami Meadow** — Nurture sprouts, wake the Flower Fairy, toggle Day/Dusk lighting, catch fireflies, and craft ecological wonders. |
+| **Weather World** | `modules/weather.py` | Atmospheric paper-cut climate simulation triggered via page-corner flip from Living World. |
+| **Secret World** | `modules/secret.py` | Hidden interactive paper diorama layer unlocked through exploration. |
+| **World Experience** | `modules/experience.py` | Unified multi-sensory narrative journey across the Paper Universe. |
 
 ---
 
 ## ✨ Key Features (*Living World: The Origami Meadow*)
 
-- **🧚 Guided Discovery & Awakening:** Navigate the 4-page illustrated *Origami Meadow Guide* (`dialog.PNG`)[cite: 1] and tap the mushroom door to wake the sleeping Flower Fairy (`fairy.PNG`)[cite: 1].
-- **💧 Botanical Nurturing:** Pick up the wooden watering can, scoop water from the pond, and hold over soil sprouts to bloom multi-stage paper flowers (`flower1.PNG`–`flower3.PNG`)[cite: 1].
-- **🌗 Dynamic Day / Dusk Cycle:** Switch between sunlit meadow greens and twilight blues to awaken nocturnal creatures (`owl.png`)[cite: 1], reveal the moon and stars (`moon.png`, `star.png`)[cite: 1], and spawn glowing fireflies (`firefly.PNG`)[cite: 1].
-- **🏮 Firefly Lantern & Workbench Crafting:** Catch 5 fireflies to illuminate the fairy's lantern (`lantern.PNG`)[cite: 1], harvest sky energy orbs, and craft ecological wonders at the workbench.
+- **🧚 Guided Discovery & Awakening:** Navigate the 4-page illustrated *Origami Meadow Guide* (`dialog.PNG`) and tap the mushroom door to wake the sleeping Flower Fairy (`fairy.PNG`).
+- **💧 Botanical Nurturing:** Pick up the wooden watering can, scoop water from the pond, and hold over soil sprouts to bloom multi-stage paper flowers (`flower1.PNG`–`flower3.PNG`).
+- **🌗 Dynamic Day / Dusk Cycle:** Switch between sunlit meadow greens and twilight blues to awaken nocturnal creatures (`owl.png`), reveal the moon and stars (`moon.png`, `star.png`), and spawn glowing fireflies (`firefly.PNG`).
+- **🏮 Firefly Lantern & Workbench Crafting:** Catch 5 fireflies to illuminate the fairy's lantern (`lantern.PNG`), harvest sky energy orbs, and craft ecological wonders at the workbench.
 - **🎵 Procedural Web Audio & Particles:** Real-time Web Audio API harmonic chimes paired with particle bursts (`HarvestParticles`, `SkyEnergyOrbs`) provide immediate tactile feedback.
-- **📦 Self-Contained Base64 Asset Pipeline:** Runtime image serialization (`load_asset_data_uri`) embeds all transparent PNG sprites directly as Data URIs[cite: 1], guaranteeing zero broken assets across local and cloud deployments.
+- **📦 Self-Contained Base64 Asset Pipeline:** Runtime image serialization (`load_asset_data_uri`) embeds all transparent PNG sprites directly as Data URIs, guaranteeing zero broken assets across local and cloud deployments.
 
 ---
 
@@ -55,16 +55,16 @@
 
 ## 🗂️ Repository Structure
 
-- `app.py`[cite: 1] — Main Streamlit application shell & 16:9 full-bleed viewport CSS controller
-- `modules/living.py`[cite: 1] — Living World: The Origami Meadow (p5.js canvas, state machines & Base64 loader)
-- `modules/weather.py`[cite: 1] — Weather World module
-- `modules/secret.py`[cite: 1] — Secret World module
-- `modules/experience.py`[cite: 1] — World Experience module
-- `assets/`[cite: 1] — High-resolution transparent PNG paper-cut sprites (`fairy.PNG`, `lantern.PNG`, `frog.PNG`, `lotus.png`, `flower1.PNG`–`flower3.PNG`, etc.)[cite: 1]
-- `living_world_standalone.html`[cite: 1] — Standalone single-file HTML build (runs offline without a Python server)
-- `PROCESS.md`[cite: 6] — Comprehensive design & development process documentation
-- `TECHNICAL_AGREEMENT.md`[cite: 1] — Team integration conventions & technical architecture agreement
-- `pyproject.toml` & `uv.lock`[cite: 1] — Python project dependencies & locked environment configuration
+- `app.py` — Main Streamlit application shell & 16:9 full-bleed viewport CSS controller
+- `modules/living.py` — Living World: The Origami Meadow (p5.js canvas, state machines & Base64 loader)
+- `modules/weather.py` — Weather World module
+- `modules/secret.py` — Secret World module
+- `modules/experience.py` — World Experience module
+- `assets/` — High-resolution transparent PNG paper-cut sprites (`fairy.PNG`, `lantern.PNG`, `frog.PNG`, `lotus.png`, `flower1.PNG`–`flower3.PNG`, etc.)
+- `living_world_standalone.html` — Standalone single-file HTML build (runs offline without a Python server)
+- `PROCESS.md` — Comprehensive design & development process documentation
+- `TECHNICAL_AGREEMENT.md` — Team integration conventions & technical architecture agreement
+- `pyproject.toml` & `uv.lock` — Python project dependencies & locked environment configuration
 
 ---
 
@@ -76,19 +76,19 @@
    `git clone https://github.com/634461276-boop/paper-universe.git`
    `cd paper-universe`
 
-2. **Install dependencies (Python 3.10+, tested on 3.14)[cite: 1]:**
+2. **Install dependencies (Python 3.10+, tested on 3.14):**
    `uv sync` *(or `pip install streamlit`)*
 
 3. **Start the local server:**
-   `streamlit run app.py`[cite: 1]
+   `streamlit run app.py`
 
 4. **Enter 16:9 Full-Bleed Exhibition Mode:**
-   - Open `http://localhost:8501` in Google Chrome[cite: 1].
+   - Open `http://localhost:8501` in Google Chrome.
    - Enter browser Full-Screen mode and press **`Command + Shift + F`** (macOS) to hide the browser tab bar and address bar.
 
 ### Option B: Standalone Offline HTML Preview
 
-- Double-click `living_world_standalone.html`[cite: 1] in Finder/Explorer to open *Living World* directly in any modern browser without running Python or Streamlit.
+- Double-click `living_world_standalone.html` in Finder/Explorer to open *Living World* directly in any modern browser without running Python or Streamlit.
 
 ---
 
@@ -104,7 +104,7 @@
 - **Application Shell:** Python, Streamlit (`layout="wide"`, custom full-viewport CSS)
 - **Creative Coding & Rendering:** HTML5, CSS3, JavaScript (ES6+), p5.js (`pixelDensity(2)`)
 - **Audio & Particles:** Web Audio API, custom 2D particle emitters
-- **Environment & Version Control:** `uv`[cite: 1], Git / GitHub (`main` branch)[cite: 4]
+- **Environment & Version Control:** `uv`, Git / GitHub (`main` branch)
 
 ---
 
