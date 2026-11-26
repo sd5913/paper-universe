@@ -21,9 +21,10 @@ def render():
     st.header("☀️ Weather World")
     st.write("Drag paper-cut weather elements into the scene. Arrange them freely and discover magical combinations!")
 
-    names = ["sun", "cloud", "rain", "snow", "wind", "background", "water", "lightning", "rainbow", "tornado"]
+    names = ["sun", "cloud", "rain", "snow", "wind", "background", "water", "lightning", "rainbow", "tornado", "tutorial_goddess"]
     assets = {name: image_uri(str(ASSET_DIR / f"{name}.png")) for name in names}
     missing = [f"{name}.png" for name in names if not assets[name]]
+    missing = [name for name in missing if name != "tutorial_goddess.png"]
     if missing:
         st.warning("Missing weather assets: " + ", ".join(missing))
 
@@ -90,10 +91,26 @@ button.action{background:#eed0ef;color:#654a74;border:0;border-radius:25px;paddi
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes wind{0%,100%{transform:translateX(-8px) rotate(-4deg)}50%{transform:translateX(9px) rotate(5deg)}}
 @media(max-width:550px){.scene{height:320px}.tool{width:65px;height:75px}.tool img{width:43px;height:43px}.item{width:69px;height:69px}.item.snowcloud,.item.storm{width:108px;height:108px}}
 @media(prefers-reduced-motion:reduce){.item .symbol,.combo,.hanger,.bolt,.snow-particle,.storm-flash,.water-ripple{animation:none!important}.rainbow,.scene::before{transition:none}}
+
+/* Tutorial: illustration is an image; dialogue text and buttons remain selectable HTML. */
+.tutorial-help{position:absolute;right:12px;top:12px;z-index:22;background:#fff9f0;border:2px solid #c8b5dd;border-radius:20px;padding:7px 13px;color:#735b8a;font-weight:bold;cursor:pointer;box-shadow:0 3px 8px #57436733}
+.tutorial-shade{position:absolute;inset:0;z-index:18;background:#4b3d6640;display:none;align-items:flex-end;justify-content:center;padding:12px;pointer-events:auto}
+.tutorial-shade.open{display:flex}
+.tutorial-card{position:relative;width:min(100%,700px);aspect-ratio:2 / 1;filter:drop-shadow(0 5px 10px #3f305a55);background:#fff4e9;border-radius:28px;border:3px solid #cdb5e2;overflow:hidden}
+.tutorial-card.has-art{background:transparent;border:0;border-radius:0;overflow:visible}
+.tutorial-art{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.tutorial-copy{position:absolute;left:38%;right:8%;top:18%;bottom:17%;display:flex;flex-direction:column;justify-content:center;gap:10px;text-align:left;color:#705982}
+.tutorial-copy h3{font-size:clamp(15px,2vw,20px);margin:0;color:#80639b}
+.tutorial-copy p{font-size:clamp(13px,1.75vw,17px);line-height:1.45;margin:0}
+.tutorial-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:9px}
+.tutorial-nav button{border:0;border-radius:15px;padding:8px 15px;font-size:14px;cursor:pointer;background:#d8c3e9;color:#5f4879;font-weight:bold}
+.tutorial-nav .skip{background:#ffffffba}
+.tutorial-count{font-size:13px;opacity:.8}
+@media(max-width:550px){.tutorial-shade{padding:4px}.tutorial-copy{left:36%;right:6%;top:12%;bottom:10%;gap:3px}.tutorial-copy p{font-size:10px;line-height:1.2}.tutorial-copy h3{font-size:11px}.tutorial-nav button{font-size:10px;padding:4px 7px}.tutorial-nav{margin-top:1px}}
 </style></head><body>
 <h2>🌈 Create Your Weather</h2><p class="hint">Drag or click to add. Move freely. Bring Sun near Rain for a rainbow; overlap and release to fuse!</p>
-<div class="toolbar" id="toolbar"></div><div class="scene" id="scene" aria-label="Interactive weather scene"><div id="tornado" aria-hidden="true"><img id="tornado-art" alt="" draggable="false"/></div><div id="effects"><div class="snow-ground"></div><div class="storm-flash"></div><div class="water-ripple"></div><div class="water-ripple second"></div></div><img class="rainbow" id="rainbow" alt="Rainbow"/></div>
-<div id="feedback" aria-live="polite">✨ Create your own sky!</div><div id="discoveries">Discoveries: 0 / 6</div>
+<div class="toolbar" id="toolbar"></div><div class="scene" id="scene" aria-label="Interactive weather scene"><button type="button" id="tutorial-help" class="tutorial-help" aria-label="Replay weather tutorial">? Help</button><div class="tutorial-shade" id="tutorial-shade" role="dialog" aria-modal="true" aria-label="Weather World tutorial"><div class="tutorial-card" id="tutorial-card"><img id="tutorial-art" class="tutorial-art" alt=""/><div class="tutorial-copy"><h3>☁️ Whisper of the Sky</h3><p id="tutorial-text"></p><div class="tutorial-nav"><span id="tutorial-count" class="tutorial-count"></span><button type="button" id="tutorial-skip" class="skip">Skip</button><button type="button" id="tutorial-next">Next →</button></div></div></div></div><div id="tornado" aria-hidden="true"><img id="tornado-art" alt="" draggable="false"/></div><div id="effects"><div class="snow-ground"></div><div class="storm-flash"></div><div class="water-ripple"></div><div class="water-ripple second"></div></div><img class="rainbow" id="rainbow" alt="Rainbow"/></div>
+<div id="feedback" aria-live="polite">✨ Create your own sky!</div><div id="discoveries">Discoveries: 0 / 6 · Sky Energy: 0 / 6</div>
 <div class="controls"><button class="action" id="remove">🗑️ Remove selected</button><button class="action" id="reset">🔄 Reset World</button></div>
 <script>
 const ASSETS=__ASSET_JSON__;
@@ -101,6 +118,29 @@ const ASSETS=__ASSET_JSON__;
 'use strict';
 const TYPES={sun:{emoji:'☀️',name:'Sun'},cloud:{emoji:'☁️',name:'Cloud'},rain:{emoji:'🌧️',name:'Rain'},snow:{emoji:'❄️',name:'Snow'},wind:{emoji:'🌬️',name:'Wind'},snowcloud:{emoji:'🌨️',name:'Snow Cloud'},water:{emoji:'💧',name:'Water'},storm:{emoji:'⛈️',name:'Storm'}};
 const STARTERS=['sun','cloud','rain','snow','wind'];
+
+const TUTORIAL_LINES=[
+  'Welcome to Weather World! Here, the sky is full of little surprises.',
+  'Click a weather icon to add it. Drag elements around the sky to move them.',
+  'Bring different elements together and release to discover magic. Some combinations work just by getting close!'
+];
+const tutorialShade=document.getElementById('tutorial-shade');
+const tutorialCard=document.getElementById('tutorial-card');
+const tutorialArt=document.getElementById('tutorial-art');
+const tutorialText=document.getElementById('tutorial-text');
+const tutorialCount=document.getElementById('tutorial-count');
+const tutorialNext=document.getElementById('tutorial-next');
+let tutorialIndex=0;
+if(ASSETS.tutorial_goddess){tutorialArt.src=ASSETS.tutorial_goddess;tutorialCard.classList.add('has-art');}
+else{tutorialArt.style.display='none';}
+function showTutorial(index=0){tutorialIndex=index;renderTutorial();tutorialShade.classList.add('open');}
+function renderTutorial(){tutorialText.textContent=TUTORIAL_LINES[tutorialIndex];tutorialCount.textContent=(tutorialIndex+1)+' / '+TUTORIAL_LINES.length;tutorialNext.textContent=tutorialIndex===TUTORIAL_LINES.length-1?'Start Exploring →':'Next →';}
+function hideTutorial(){tutorialShade.classList.remove('open');try{sessionStorage.setItem('weather_tutorial_seen_v1','yes');}catch(e){}}
+document.getElementById('tutorial-help').addEventListener('click',()=>showTutorial());
+document.getElementById('tutorial-skip').addEventListener('click',hideTutorial);
+tutorialNext.addEventListener('click',()=>{if(tutorialIndex<TUTORIAL_LINES.length-1){tutorialIndex++;renderTutorial();}else hideTutorial();});
+try{if(sessionStorage.getItem('weather_tutorial_seen_v1')!=='yes')showTutorial();}catch(e){showTutorial();}
+
 const RECIPES={'cloud+snow':{result:'snowcloud',message:'🌨️ A snowy cloud is born!'},'snow+sun':{result:'water',message:'💧 Sunshine melts the snow!'},'cloud+rain':{result:'storm',message:'⛈️ A storm is brewing!'},'snow+wind':{result:'blizzard',message:'🌨️ A blizzard is sweeping through!'},'wind+wind':{result:'tornado',message:'🌪️ A tornado is sweeping the sky!'}};
 const scene=document.getElementById('scene'),toolbar=document.getElementById('toolbar'),feedback=document.getElementById('feedback'),discoveries=document.getElementById('discoveries'),rainbow=document.getElementById('rainbow');
 if(ASSETS.background)scene.style.backgroundImage=`url("${ASSETS.background}")`;
@@ -110,8 +150,26 @@ else {rainbow.style.fontSize='90px';rainbow.alt='🌈';}
 const effects=document.getElementById('effects');
 for(let i=0;i<24;i++){const flake=document.createElement('span');flake.className='snow-particle';flake.textContent='✳';flake.style.left=(i*43.7%100)+'%';flake.style.animationDuration=(4+(i%6)*.7)+'s';flake.style.animationDelay=(-i*.39)+'s';flake.style.fontSize=(9+(i%4)*3)+'px';effects.appendChild(flake);}
 function setWeather(type){scene.dataset.weather=(blizzardActive && type!=='normal' && type!=='blizzard')?'blizzard':(type||'normal');}
-let items=[],selected=null,drag=null,seq=0,locked=false,eventTimer=null,blizzardActive=false;const discovered=new Set();
-function updateDiscoveries(){discoveries.textContent=`Discoveries: ${discovered.size} / 6`;}
+let items=[],selected=null,drag=null,seq=0,locked=false,eventTimer=null,blizzardActive=false;
+ const discovered=new Set();
+ const DISCOVERY_IDS={
+  rainbow:'weather_rainbow',
+  'cloud+snow':'weather_snowcloud',
+  'snow+sun':'weather_water',
+  'cloud+rain':'weather_storm',
+  'snow+wind':'weather_blizzard',
+  'wind+wind':'weather_tornado'
+ };
+ function updateDiscoveries(){
+  discoveries.textContent=`Discoveries: ${discovered.size} / 6 · Sky Energy: ${discovered.size} / 6`;
+ }
+ function registerDiscovery(key){
+  const id=DISCOVERY_IDS[key];
+  if(!id || discovered.has(id))return false;
+  discovered.add(id);
+  updateDiscoveries();
+  return true;
+ }
 function blizzard(){if(eventTimer)clearTimeout(eventTimer);blizzardActive=true;setWeather('blizzard');feedback.textContent='🌨️ Blizzard! Snow sweeps across the sky.';eventTimer=setTimeout(()=>{blizzardActive=false;setWeather('normal');feedback.textContent='✨ The blizzard has passed!';draw();eventTimer=null;},8000);}
 function tornado(){
  if(eventTimer)clearTimeout(eventTimer);eventTimer=null;blizzardActive=false;locked=true;drag=null;setWeather('normal');rainbow.classList.remove('visible');
@@ -148,8 +206,8 @@ if(type==='snowcloud'||type==='storm'){
 }
 const asset=ASSETS[type];if(asset){const img=document.createElement('img');img.className='symbol';img.src=asset;img.alt=TYPES[type].name;img.draggable=false;return img;}const span=document.createElement('span');span.className='symbol';span.textContent=TYPES[type].emoji;return span;}
 function react(){let near=false;for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(recipeKey(a.type,b.type)==='rain+sun'&&distance(a,b)<83)near=true;}
-rainbow.classList.toggle('visible',near);if(near){const pair=[];for(const a of items)for(const b of items){if(a.id!==b.id&&recipeKey(a.type,b.type)==='rain+sun'&&distance(a,b)<83){pair.push(a,b);break;}if(pair.length)break;}if(pair.length){rainbow.style.left=((pair[0].x+pair[1].x)/2*100)+'%';rainbow.style.top=((pair[0].y+pair[1].y)/2*100-16)+'%';}}if(near){discovered.add('rainbow');feedback.textContent='🌈 A rainbow blooms when Sun meets Rain!';}else if(feedback.textContent.startsWith('🌈'))feedback.textContent='✨ Move elements together to discover magic!';updateDiscoveries();}
-function finishDrag(item){if(locked)return;const target=items.find(other=>other.id!==item.id&&distance(item,other)<47&&RECIPES[recipeKey(item.type,other.type)]);if(target){const key=recipeKey(item.type,target.type),recipe=RECIPES[key];const x=(item.x+target.x)/2,y=(item.y+target.y)/2;items=items.filter(v=>v.id!==item.id&&v.id!==target.id);discovered.add(key);selected=null;if(recipe.result==='blizzard'){draw();blizzard();}else if(recipe.result==='tornado'){draw();tornado();}else{place(recipe.result,x,y);setWeather(recipe.result);feedback.textContent=recipe.message;}}else draw();react();}
+rainbow.classList.toggle('visible',near);if(near){const pair=[];for(const a of items)for(const b of items){if(a.id!==b.id&&recipeKey(a.type,b.type)==='rain+sun'&&distance(a,b)<83){pair.push(a,b);break;}if(pair.length)break;}if(pair.length){rainbow.style.left=((pair[0].x+pair[1].x)/2*100)+'%';rainbow.style.top=((pair[0].y+pair[1].y)/2*100-16)+'%';}}if(near){registerDiscovery('rainbow');feedback.textContent='🌈 A rainbow blooms when Sun meets Rain!';}else if(feedback.textContent.startsWith('🌈'))feedback.textContent='✨ Move elements together to discover magic!';updateDiscoveries();}
+function finishDrag(item){if(locked)return;const target=items.find(other=>other.id!==item.id&&distance(item,other)<47&&RECIPES[recipeKey(item.type,other.type)]);if(target){const key=recipeKey(item.type,target.type),recipe=RECIPES[key];const x=(item.x+target.x)/2,y=(item.y+target.y)/2;items=items.filter(v=>v.id!==item.id&&v.id!==target.id);registerDiscovery(key);selected=null;if(recipe.result==='blizzard'){draw();blizzard();}else if(recipe.result==='tornado'){draw();tornado();}else{place(recipe.result,x,y);setWeather(recipe.result);feedback.textContent=recipe.message;}}else draw();react();}
 function draw(){scene.querySelectorAll('.item').forEach(n=>n.remove());for(const item of items){const node=document.createElement('div');node.className='item '+item.type+(selected===item.id?' selected':'');node.dataset.id=item.id;node.style.left=item.x*100+'%';node.style.top=item.y*100+'%';node.appendChild(symbol(item.type));
 node.addEventListener('pointerdown',e=>{if(locked)return;e.preventDefault();e.stopPropagation();selected=item.id;drag={kind:'item',id:item.id,pointer:e.pointerId};node.setPointerCapture(e.pointerId);scene.querySelectorAll('.item').forEach(n=>n.classList.toggle('selected',n===node));});
 node.addEventListener('pointermove',e=>{if(!drag||drag.kind!=='item'||drag.id!==item.id||drag.pointer!==e.pointerId)return;const p=coords(e);item.x=p.x;item.y=p.y;node.style.left=p.x*100+'%';node.style.top=p.y*100+'%';react();});
@@ -161,9 +219,9 @@ t.addEventListener('pointerup',e=>{if(!drag||drag.kind!=='tool'||drag.pointer!==
 t.addEventListener('pointercancel',()=>drag=null);toolbar.appendChild(t);}
 scene.addEventListener('pointerdown',e=>{if(e.target===scene){selected=null;draw();}});
 document.getElementById('remove').addEventListener('click',()=>{if(locked)return;if(selected===null){feedback.textContent='Select an element first.';return;}items=items.filter(i=>i.id!==selected);selected=null;feedback.textContent='🗑️ Element removed.';draw();});
-document.getElementById('reset').addEventListener('click',()=>{if(eventTimer)clearTimeout(eventTimer);eventTimer=null;locked=false;blizzardActive=false;document.getElementById('tornado').classList.remove('active');items=[];selected=null;discovered.clear();setWeather('normal');feedback.textContent='✨ A fresh sky awaits!';draw();});
+document.getElementById('reset').addEventListener('click',()=>{if(eventTimer)clearTimeout(eventTimer);eventTimer=null;locked=false;blizzardActive=false;document.getElementById('tornado').classList.remove('active');items=[];selected=null;setWeather('normal');feedback.textContent='✨ A fresh sky awaits!';draw();});
 window.addEventListener('resize',react);setWeather('normal');draw();
 })();
 </script></body></html>'''
     html_code = html_code.replace("__ASSET_JSON__", asset_json)
-    components.html(html_code, height=720, scrolling=True)
+    components.html(html_code, height=760, scrolling=True)
