@@ -37,22 +37,29 @@
                     </div>
                 </div>
 
+                
+                
                 <!-- Right page -->
                 <div class="right-page">
-                    <div class="scene" id="chapterScene">
-                        <div class="scene-sun"></div>
-                        <div class="scene-cloud cloud-a"></div>
-                        <div class="scene-cloud cloud-b"></div>
-                        <div class="scene-hill hill-back"></div>
-                        <div class="scene-hill hill-front"></div>
-                        <div class="scene-tree tree-a">🌳</div>
-                        <div class="scene-tree tree-b">🌲</div>
-                        <div class="scene-flower">✿</div>
-                        <div class="scene-caption" id="sceneCaption">
-                            A little garden awaits...
-                        </div>
-                    </div>
-                </div>
+                    <a href="living-world/index.html"
+                    class="chapter-preview-link"
+                    id="chapterPreviewLink">
+
+                    <img
+                        src="assets/living-world-preview.png"
+                        alt="Living World Preview"
+                        class="chapter-preview-image"
+                        id="chapterPreviewImage"
+                    >
+
+                    <h2 id="chapterPreviewTitle">Living World</h2>
+                    <p id="chapterPreviewHint">Click to explore this world ✧</p>
+
+                </a>
+
+            </div>
+
+
 
                 <!-- Animated page -->
                 <div class="turn-page" id="turnPage">
@@ -65,17 +72,15 @@
         </section>
 
         <section class="book-controls">
+
             <button id="prevButton" class="nav-button">
                 ← Previous
-            </button>
-
-            <button id="enterButton" class="enter-button">
-                ENTER CHAPTER →
             </button>
 
             <button id="nextButton" class="nav-button">
                 Next Page →
             </button>
+
         </section>
 
         <footer class="book-footer">

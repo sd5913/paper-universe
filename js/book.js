@@ -5,8 +5,8 @@ const chapters = [
         title: "Living World",
         description:
             "Discover a little world where plants grow, nature responds, and tiny wonders come to life.",
-        caption: "A little garden awaits...",
-        url: "living_world/index.html",
+        url: "living-world/index.html",
+        previewImage: "assets/living-world-preview.png",
         theme: "living"
     },
     {
@@ -14,8 +14,8 @@ const chapters = [
         title: "Chapter Two",
         description:
             "A new landscape is waiting to be discovered. Replace this text when the second chapter is ready.",
-        caption: "Another world is waiting...",
         url: "chapter-02/index.html",
+        previewImage: "assets/chapter-02-preview.png",
         theme: "weather"
     },
     {
@@ -23,8 +23,8 @@ const chapters = [
         title: "Chapter Three",
         description:
             "Turn one more page and discover the final part of this little universe.",
-        caption: "The final adventure...",
         url: "chapter-03/index.html",
+        previewImage: "assets/chapter-03-preview.png",
         theme: "secret"
     }
 ];
@@ -32,45 +32,57 @@ const chapters = [
 let currentChapter = 0;
 let isTurning = false;
 
+// Existing book elements
 const storybook = document.getElementById("storybook");
 const numberText = document.getElementById("chapterNumber");
 const titleText = document.getElementById("chapterTitle");
 const descriptionText = document.getElementById("chapterDescription");
-const captionText = document.getElementById("sceneCaption");
 const pageCounter = document.getElementById("pageCounter");
 
+// New chapter preview elements
+const previewLink = document.getElementById("chapterPreviewLink");
+const previewImage = document.getElementById("chapterPreviewImage");
+const previewTitle = document.getElementById("chapterPreviewTitle");
+const previewHint = document.getElementById("chapterPreviewHint");
+
+// Navigation buttons
 const prevButton = document.getElementById("prevButton");
 const nextButton = document.getElementById("nextButton");
-const enterButton = document.getElementById("enterButton");
+
 
 function renderChapter() {
     const chapter = chapters[currentChapter];
 
+    // Update left page
     numberText.textContent = chapter.number;
     titleText.textContent = chapter.title;
     descriptionText.textContent = chapter.description;
-    captionText.textContent = chapter.caption;
 
+    // Update right page preview
+    previewLink.href = chapter.url;
+    previewImage.onload = () => {
+        console.log("Preview image loaded:", chapter.previewImage);
+    };
+
+    previewImage.onerror = () => {
+        console.error("Preview image failed to load:", chapter.previewImage);
+    };
+
+    previewImage.src = chapter.previewImage;
+    previewImage.alt = chapter.title + " Preview";
+    previewTitle.textContent = chapter.title;
+
+    previewHint.textContent = "Click to explore this world ✧";
+
+    // Update page counter
     pageCounter.textContent =
         `0${currentChapter + 1} / 0${chapters.length}`;
 
-    // Give each chapter a different scene colour.
-    const scene = document.getElementById("chapterScene");
-
-    if (chapter.theme === "living") {
-        scene.style.background =
-            "linear-gradient(#a9d7e9 0 55%, #b6cc91 55% 100%)";
-    } else if (chapter.theme === "weather") {
-        scene.style.background =
-            "linear-gradient(#a9d7e9 0 55%, #c7d9b0 55% 100%)";
-    } else {
-        scene.style.background =
-            "linear-gradient(#b8b6d7 0 55%, #a8b99a 55% 100%)";
-    }
-
+    // Update navigation buttons
     prevButton.disabled = currentChapter === 0;
     nextButton.disabled = currentChapter === chapters.length - 1;
 }
+
 
 function turnPage(direction) {
     if (isTurning) return;
@@ -86,7 +98,7 @@ function turnPage(direction) {
         "is-turning-prev"
     );
 
-    // Restart the animation reliably.
+    // Restart animation
     void storybook.offsetWidth;
 
     storybook.classList.add(
@@ -95,10 +107,10 @@ function turnPage(direction) {
 
     prevButton.disabled = true;
     nextButton.disabled = true;
-    enterButton.disabled = true;
 
     setTimeout(() => {
         currentChapter = nextIndex;
+
         renderChapter();
 
         storybook.classList.remove(
@@ -107,18 +119,24 @@ function turnPage(direction) {
         );
 
         isTurning = false;
-        enterButton.disabled = false;
     }, 750);
 }
 
+
+// Previous and Next buttons
 nextButton.addEventListener("click", () => turnPage(1));
 prevButton.addEventListener("click", () => turnPage(-1));
 
-enterButton.addEventListener("click", () => {
-    if (isTurning) return;
 
-    const chapter = chapters[currentChapter];
-    window.location.href = chapter.url;
+// Prevent entering a chapter while the page is turning
+previewLink.addEventListener("click", (event) => {
+    if (isTurning) {
+        event.preventDefault();
+    }
 });
 
+
+// Initial display
 renderChapter();
+console.log("Current chapter:", currentChapter);
+console.log("Preview image:", previewImage.src);
