@@ -509,7 +509,7 @@ def render():
         return sceneState === "GARDEN_ACTIVE" && abs(px - 532) <= 130 && abs(py - WORKBENCH_Y) <= 26;
       }}
 
-      function isPointOnPageCurl(px, py) {{
+      function isPointOnPageCurl(x, y) {{ return false; }} function _unused_page_curl(px, py) {{
         return px >= width - 125 && py >= height - 115;
       }}
 
@@ -984,6 +984,7 @@ def render():
       }}
 
       function drawLivingPageCurl() {{
+    return;
         let hovered = isPointOnPageCurl(mouseX, mouseY);
         let readyPulse = (unlockedMiracles.size > 0 || gardenVitality > 0.25) ? (sin(frameCount * 0.08) * 0.5 + 0.5) : 0;
         let targetCurl = hovered ? 1.0 : (0.45 + readyPulse * 0.18);
@@ -1015,7 +1016,7 @@ def render():
         fill(duskBlend > 0.5 ? '#f5efe2' : '#6b6356');
         textAlign(RIGHT, BOTTOM);
         textSize(hovered ? 12 : 11);
-        text(hovered ? "Flip to Weather World ▸" : "Weather World ▸", cx - curlSize - 8, cy - 10);
+//         text(hovered ? " ▸" : "Weather World ▸", cx - curlSize - 8, cy - 10);
         pop();
       }}
 
