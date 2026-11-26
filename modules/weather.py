@@ -17,9 +17,11 @@ def image_uri(path_string: str) -> str:
 
 
 def render():
-    """Weather World 6.0: interactive paper-cut scene."""
-    st.header("☀️ Weather World")
-    st.write("Drag paper-cut weather elements into the scene. Arrange them freely and discover magical combinations!")
+    """Weather World 7.1: responsive paper-cut scene."""
+    st.markdown("""<style>
+    .stMainBlockContainer:has(.st-key-weather_fullscreen) {max-width:100%;padding:0 0 0 0;}
+    .st-key-weather_fullscreen iframe {width:100%;height:calc(100dvh - 60px)!important;min-height:360px;display:block;}
+    </style>""", unsafe_allow_html=True)
 
     names = ["sun", "cloud", "rain", "snow", "wind", "background", "water", "lightning", "rainbow", "tornado", "tutorial_goddess"]
     assets = {name: image_uri(str(ASSET_DIR / f"{name}.png")) for name in names}
@@ -107,12 +109,32 @@ button.action{background:#eed0ef;color:#654a74;border:0;border-radius:25px;paddi
 .tutorial-nav .skip{background:#ffffffba}
 .tutorial-count{font-size:13px;opacity:.8}
 @media(max-width:550px){.tutorial-shade{padding:4px}.tutorial-copy{left:36%;right:6%;top:12%;bottom:10%;gap:3px}.tutorial-copy p{font-size:10px;line-height:1.2}.tutorial-copy h3{font-size:11px}.tutorial-nav button{font-size:10px;padding:4px 7px}.tutorial-nav{margin-top:1px}}
+
+/* Full-viewport scene with floating controls. */
+html,body{width:100%;height:100%;overflow:hidden;margin:0;padding:0}
+.scene{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0;background-position:center bottom}
+.hud-top{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:min(95%,760px);z-index:15;pointer-events:none}
+.hud-top h2,.hud-top .hint{margin:0 0 5px;text-shadow:0 1px 3px #fff}
+.hud-top .toolbar{width:max-content;max-width:100%;margin:8px auto 0;padding:7px;background:#fff9f0d9;border-radius:20px;gap:8px;pointer-events:auto;flex-wrap:nowrap}
+.tool{width:68px;height:72px}.tool img{width:44px;height:44px}
+#feedback,#completion,#discoveries,.controls{position:absolute;z-index:15;margin:0;background:#fff9f0e8;border-radius:20px;padding:8px 12px}
+#feedback{bottom:56px;left:50%;transform:translateX(-50%);max-width:90%;min-height:0;pointer-events:none}
+#completion{bottom:94px;left:50%;transform:translateX(-50%);max-width:90%;pointer-events:none}
+#discoveries{bottom:12px;left:12px;pointer-events:none}.controls{bottom:12px;right:12px;padding:0;background:none}
+.tutorial-shade{align-items:center}.tutorial-card{width:min(90%,700px,170vh)}
+.tutorial-copy{left:42%;right:10%;top:27%;bottom:19%;gap:6px}.tutorial-nav{margin-top:3px}
+.tutorial-help{top:10px;right:12px;z-index:22}
+#fullscreen{position:absolute;top:10px;left:12px;z-index:22;background:#fff9f0;border:2px solid #c8b5dd;border-radius:20px;padding:7px 13px;color:#735b8a;cursor:pointer}
+@keyframes snowFall{from{transform:translateY(-10px) rotate(0)}to{transform:translateY(120vh) rotate(140deg)}}
+@keyframes blizzardFall{from{transform:translate(-50px,-30px) rotate(0)}to{transform:translate(270px,120vh) rotate(540deg)}}
+@media(max-width:650px){.hud-top{top:48px}.hud-top h2{font-size:18px}.hud-top .hint{font-size:11px}.tool{width:49px;height:55px}.tool img{width:30px;height:30px}.hud-top .toolbar{gap:4px;padding:5px}.controls{bottom:8px;right:8px;gap:4px}.controls button{padding:7px;font-size:11px}#discoveries{bottom:48px;left:8px}#feedback{bottom:83px}#completion{bottom:120px;font-size:12px}.tutorial-copy{gap:3px}.tutorial-copy p{font-size:10px}.tutorial-copy h3{font-size:12px}.tutorial-nav button{font-size:10px;padding:4px 6px}}
+body:has(.tutorial-shade.open) .hud-top,body:has(.tutorial-shade.open) .controls{pointer-events:none;visibility:hidden}
 </style></head><body>
-<h2>🌈 Create Your Weather</h2><p class="hint">Drag or click to add. Move freely. Bring Sun near Rain for a rainbow; overlap and release to fuse!</p>
-<div class="toolbar" id="toolbar"></div><div class="scene" id="scene" aria-label="Interactive weather scene"><button type="button" id="tutorial-help" class="tutorial-help" aria-label="Replay weather tutorial">? Help</button><div class="tutorial-shade" id="tutorial-shade" role="dialog" aria-modal="true" aria-label="Weather World tutorial"><div class="tutorial-card" id="tutorial-card"><img id="tutorial-art" class="tutorial-art" alt=""/><div class="tutorial-copy"><h3>☁️ Whisper of the Sky</h3><p id="tutorial-text"></p><div class="tutorial-nav"><span id="tutorial-count" class="tutorial-count"></span><button type="button" id="tutorial-skip" class="skip">Skip</button><button type="button" id="tutorial-next">Next →</button></div></div></div></div><div id="tornado" aria-hidden="true"><img id="tornado-art" alt="" draggable="false"/></div><div id="effects"><div class="snow-ground"></div><div class="storm-flash"></div><div class="water-ripple"></div><div class="water-ripple second"></div></div><img class="rainbow" id="rainbow" alt="Rainbow"/></div>
-<div id="feedback" aria-live="polite">✨ Create your own sky!</div><div id="discoveries">Discoveries: 0 / 6 · Sky Energy: 0 / 6</div>
+<div class="hud-top"><h2>🌈 Create Your Weather</h2><p class="hint">Drag or click to add. Move freely. Bring Sun near Rain for a rainbow; overlap and release to fuse!</p>
+<div class="toolbar" id="toolbar"></div></div><div class="scene" id="scene" aria-label="Interactive weather scene"><button type="button" id="tutorial-help" class="tutorial-help" aria-label="Replay weather tutorial">? Help</button><div class="tutorial-shade" id="tutorial-shade" role="dialog" aria-modal="true" aria-label="Weather World tutorial"><div class="tutorial-card" id="tutorial-card"><img id="tutorial-art" class="tutorial-art" alt=""/><div class="tutorial-copy"><h3>☁️ Whisper of the Sky</h3><p id="tutorial-text"></p><div class="tutorial-nav"><span id="tutorial-count" class="tutorial-count"></span><button type="button" id="tutorial-skip" class="skip">Skip</button><button type="button" id="tutorial-next">Next →</button></div></div></div></div><div id="tornado" aria-hidden="true"><img id="tornado-art" alt="" draggable="false"/></div><div id="effects"><div class="snow-ground"></div><div class="storm-flash"></div><div class="water-ripple"></div><div class="water-ripple second"></div></div><img class="rainbow" id="rainbow" alt="Rainbow"/></div>
+<div id="feedback" aria-live="polite">✨ Create your own sky!</div><div id="completion" role="status" hidden style="margin:8px auto;color:#705982;font-weight:bold">✨ Weather World Complete! You have discovered all six weather mysteries.</div><div id="discoveries">Discoveries: 0 / 6 · Sky Energy: 0 / 6</div>
 <div class="controls"><button class="action" id="remove">🗑️ Remove selected</button><button class="action" id="reset">🔄 Reset World</button></div>
-<script>
+<button id="fullscreen" type="button">⛶ Fullscreen</button><script>
 const ASSETS=__ASSET_JSON__;
 (()=>{
 'use strict';
@@ -136,7 +158,7 @@ else{tutorialArt.style.display='none';}
 function showTutorial(index=0){tutorialIndex=index;renderTutorial();tutorialShade.classList.add('open');}
 function renderTutorial(){tutorialText.textContent=TUTORIAL_LINES[tutorialIndex];tutorialCount.textContent=(tutorialIndex+1)+' / '+TUTORIAL_LINES.length;tutorialNext.textContent=tutorialIndex===TUTORIAL_LINES.length-1?'Start Exploring →':'Next →';}
 function hideTutorial(){tutorialShade.classList.remove('open');try{sessionStorage.setItem('weather_tutorial_seen_v1','yes');}catch(e){}}
-document.getElementById('tutorial-help').addEventListener('click',()=>showTutorial());
+document.getElementById('tutorial-help').addEventListener('click',()=>{drag=null;showTutorial();});
 document.getElementById('tutorial-skip').addEventListener('click',hideTutorial);
 tutorialNext.addEventListener('click',()=>{if(tutorialIndex<TUTORIAL_LINES.length-1){tutorialIndex++;renderTutorial();}else hideTutorial();});
 try{if(sessionStorage.getItem('weather_tutorial_seen_v1')!=='yes')showTutorial();}catch(e){showTutorial();}
@@ -149,6 +171,8 @@ if(ASSETS.rainbow)rainbow.src=ASSETS.rainbow;
 else {rainbow.style.fontSize='90px';rainbow.alt='🌈';}
 const effects=document.getElementById('effects');
 for(let i=0;i<24;i++){const flake=document.createElement('span');flake.className='snow-particle';flake.textContent='✳';flake.style.left=(i*43.7%100)+'%';flake.style.animationDuration=(4+(i%6)*.7)+'s';flake.style.animationDelay=(-i*.39)+'s';flake.style.fontSize=(9+(i%4)*3)+'px';effects.appendChild(flake);}
+function tutorialOpen(){return tutorialShade.classList.contains('open');}
+function syncWeather(){setWeather(locked?'normal':blizzardActive?'blizzard':items.some(i=>i.type==='storm')?'storm':items.some(i=>i.type==='snowcloud')?'snowcloud':items.some(i=>i.type==='water')?'water':'normal');}
 function setWeather(type){scene.dataset.weather=(blizzardActive && type!=='normal' && type!=='blizzard')?'blizzard':(type||'normal');}
 let items=[],selected=null,drag=null,seq=0,locked=false,eventTimer=null,blizzardActive=false;
  const discovered=new Set();
@@ -161,6 +185,7 @@ let items=[],selected=null,drag=null,seq=0,locked=false,eventTimer=null,blizzard
   'wind+wind':'weather_tornado'
  };
  function updateDiscoveries(){
+  document.getElementById('completion').hidden=discovered.size!==6;
   discoveries.textContent=`Discoveries: ${discovered.size} / 6 · Sky Energy: ${discovered.size} / 6`;
  }
  function registerDiscovery(key){
@@ -170,7 +195,7 @@ let items=[],selected=null,drag=null,seq=0,locked=false,eventTimer=null,blizzard
   updateDiscoveries();
   return true;
  }
-function blizzard(){if(eventTimer)clearTimeout(eventTimer);blizzardActive=true;setWeather('blizzard');feedback.textContent='🌨️ Blizzard! Snow sweeps across the sky.';eventTimer=setTimeout(()=>{blizzardActive=false;setWeather('normal');feedback.textContent='✨ The blizzard has passed!';draw();eventTimer=null;},8000);}
+function blizzard(){if(eventTimer)clearTimeout(eventTimer);blizzardActive=true;setWeather('blizzard');feedback.textContent='🌨️ Blizzard! Snow sweeps across the sky.';eventTimer=setTimeout(()=>{blizzardActive=false;syncWeather();feedback.textContent='✨ The blizzard has passed!';draw();eventTimer=null;},8000);}
 function tornado(){
  if(eventTimer)clearTimeout(eventTimer);eventTimer=null;blizzardActive=false;locked=true;drag=null;setWeather('normal');rainbow.classList.remove('visible');
  const funnel=document.getElementById('tornado');funnel.classList.add('active');
@@ -188,11 +213,13 @@ function tornado(){
    {transform:`translate(calc(-50% + ${exitX}px),calc(-50% + ${exitY}px)) rotate(1080deg) scale(.25)`,opacity:0,offset:1}],
    {duration:4600,delay:i*110,fill:'forwards',easing:'ease-in-out'});
  });
- eventTimer=setTimeout(()=>{items=[];selected=null;funnel.classList.remove('active');locked=false;setWeather('normal');feedback.textContent='✨ The sky is clear again!';draw();},5600);
+ eventTimer=setTimeout(()=>{items=[];selected=null;funnel.classList.remove('active');locked=false;setWeather('normal');feedback.textContent='✨ The sky is clear again!';eventTimer=null;draw();},Math.max(5600,4600+Math.max(0,nodes.length-1)*110));
 }
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const recipeKey=(a,b)=>[a,b].sort().join('+');
-function coords(event){const r=scene.getBoundingClientRect();return{x:clamp((event.clientX-r.left)/r.width,.055,.945),y:clamp((event.clientY-r.top)/r.height,.12,.88)};}
+function bounds(){const r=scene.getBoundingClientRect(),t=toolbar.getBoundingClientRect();const top=Math.min(.65,Math.max(.12,(t.bottom-r.top+65)/r.height));return {top,bottom:Math.max(top,.86)};}
+function coords(event){const r=scene.getBoundingClientRect(),b=bounds();return{x:clamp((event.clientX-r.left)/r.width,.055,.945),y:clamp((event.clientY-r.top)/r.height,b.top,b.bottom)};}
+function spawn(){const b=bounds();return{x:.25+Math.random()*.5,y:b.top+Math.random()*(b.bottom-b.top)};}
 function distance(a,b){return Math.hypot((a.x-b.x)*scene.clientWidth,(a.y-b.y)*scene.clientHeight);}
 function place(type,x,y){const item={id:++seq,type,x,y};items.push(item);draw();return item;}
 function symbol(type){
@@ -207,21 +234,24 @@ if(type==='snowcloud'||type==='storm'){
 const asset=ASSETS[type];if(asset){const img=document.createElement('img');img.className='symbol';img.src=asset;img.alt=TYPES[type].name;img.draggable=false;return img;}const span=document.createElement('span');span.className='symbol';span.textContent=TYPES[type].emoji;return span;}
 function react(){let near=false;for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(recipeKey(a.type,b.type)==='rain+sun'&&distance(a,b)<83)near=true;}
 rainbow.classList.toggle('visible',near);if(near){const pair=[];for(const a of items)for(const b of items){if(a.id!==b.id&&recipeKey(a.type,b.type)==='rain+sun'&&distance(a,b)<83){pair.push(a,b);break;}if(pair.length)break;}if(pair.length){rainbow.style.left=((pair[0].x+pair[1].x)/2*100)+'%';rainbow.style.top=((pair[0].y+pair[1].y)/2*100-16)+'%';}}if(near){registerDiscovery('rainbow');feedback.textContent='🌈 A rainbow blooms when Sun meets Rain!';}else if(feedback.textContent.startsWith('🌈'))feedback.textContent='✨ Move elements together to discover magic!';updateDiscoveries();}
-function finishDrag(item){if(locked)return;const target=items.find(other=>other.id!==item.id&&distance(item,other)<47&&RECIPES[recipeKey(item.type,other.type)]);if(target){const key=recipeKey(item.type,target.type),recipe=RECIPES[key];const x=(item.x+target.x)/2,y=(item.y+target.y)/2;items=items.filter(v=>v.id!==item.id&&v.id!==target.id);registerDiscovery(key);selected=null;if(recipe.result==='blizzard'){draw();blizzard();}else if(recipe.result==='tornado'){draw();tornado();}else{place(recipe.result,x,y);setWeather(recipe.result);feedback.textContent=recipe.message;}}else draw();react();}
+function finishDrag(item){if(locked)return;const target=items.find(other=>other.id!==item.id&&distance(item,other)<47&&RECIPES[recipeKey(item.type,other.type)]);if(target){const key=recipeKey(item.type,target.type),recipe=RECIPES[key];const x=(item.x+target.x)/2,y=(item.y+target.y)/2;items=items.filter(v=>v.id!==item.id&&v.id!==target.id);registerDiscovery(key);selected=null;if(recipe.result==='blizzard'){draw();blizzard();}else if(recipe.result==='tornado'){draw();tornado();}else{place(recipe.result,x,y);syncWeather();feedback.textContent=recipe.message;}}else draw();react();}
 function draw(){scene.querySelectorAll('.item').forEach(n=>n.remove());for(const item of items){const node=document.createElement('div');node.className='item '+item.type+(selected===item.id?' selected':'');node.dataset.id=item.id;node.style.left=item.x*100+'%';node.style.top=item.y*100+'%';node.appendChild(symbol(item.type));
-node.addEventListener('pointerdown',e=>{if(locked)return;e.preventDefault();e.stopPropagation();selected=item.id;drag={kind:'item',id:item.id,pointer:e.pointerId};node.setPointerCapture(e.pointerId);scene.querySelectorAll('.item').forEach(n=>n.classList.toggle('selected',n===node));});
-node.addEventListener('pointermove',e=>{if(!drag||drag.kind!=='item'||drag.id!==item.id||drag.pointer!==e.pointerId)return;const p=coords(e);item.x=p.x;item.y=p.y;node.style.left=p.x*100+'%';node.style.top=p.y*100+'%';react();});
-node.addEventListener('pointerup',e=>{if(!drag||drag.kind!=='item'||drag.id!==item.id||drag.pointer!==e.pointerId)return;drag=null;finishDrag(item);});
+node.addEventListener('pointerdown',e=>{if(locked||tutorialOpen())return;e.preventDefault();e.stopPropagation();selected=item.id;drag={kind:'item',id:item.id,pointer:e.pointerId};node.setPointerCapture(e.pointerId);scene.querySelectorAll('.item').forEach(n=>n.classList.toggle('selected',n===node));});
+node.addEventListener('pointermove',e=>{if(tutorialOpen()||!drag||drag.kind!=='item'||drag.id!==item.id||drag.pointer!==e.pointerId)return;const p=coords(e);item.x=p.x;item.y=p.y;node.style.left=p.x*100+'%';node.style.top=p.y*100+'%';react();});
+node.addEventListener('pointerup',e=>{if(tutorialOpen()||!drag||drag.kind!=='item'||drag.id!==item.id||drag.pointer!==e.pointerId)return;drag=null;finishDrag(item);});
 node.addEventListener('pointercancel',()=>{drag=null;draw();react();});scene.appendChild(node);}react();}
 for(const type of STARTERS){const t=document.createElement('div');t.className='tool';t.appendChild(symbol(type));const name=document.createElement('span');name.className='name';name.textContent=TYPES[type].name;t.appendChild(name);
-t.addEventListener('pointerdown',e=>{if(locked)return;e.preventDefault();drag={kind:'tool',type,pointer:e.pointerId};t.setPointerCapture(e.pointerId);});
-t.addEventListener('pointerup',e=>{if(!drag||drag.kind!=='tool'||drag.pointer!==e.pointerId)return;const r=scene.getBoundingClientRect();const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;const p=inside?coords(e):{x:.25+Math.random()*.5,y:.25+Math.random()*.35};place(type,p.x,p.y);feedback.textContent=inside?'✨ Element placed!':'✨ Element added — drag to arrange!';drag=null;});
+t.addEventListener('pointerdown',e=>{if(locked||tutorialOpen())return;e.preventDefault();drag={kind:'tool',type,pointer:e.pointerId};t.setPointerCapture(e.pointerId);});
+t.addEventListener('pointerup',e=>{if(!drag||drag.kind!=='tool'||drag.pointer!==e.pointerId)return;const r=scene.getBoundingClientRect();const t=toolbar.getBoundingClientRect();const onToolbar=e.clientX>=t.left&&e.clientX<=t.right&&e.clientY>=t.top&&e.clientY<=t.bottom;const inside=!onToolbar&&e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;const p=inside?coords(e):spawn();drag=null;if(locked||tutorialOpen())return;feedback.textContent=inside?'✨ Element placed!':'✨ Element added — drag to arrange!';const item=place(type,p.x,p.y);if(inside)finishDrag(item);else react();});
 t.addEventListener('pointercancel',()=>drag=null);toolbar.appendChild(t);}
-scene.addEventListener('pointerdown',e=>{if(e.target===scene){selected=null;draw();}});
-document.getElementById('remove').addEventListener('click',()=>{if(locked)return;if(selected===null){feedback.textContent='Select an element first.';return;}items=items.filter(i=>i.id!==selected);selected=null;feedback.textContent='🗑️ Element removed.';draw();});
-document.getElementById('reset').addEventListener('click',()=>{if(eventTimer)clearTimeout(eventTimer);eventTimer=null;locked=false;blizzardActive=false;document.getElementById('tornado').classList.remove('active');items=[];selected=null;setWeather('normal');feedback.textContent='✨ A fresh sky awaits!';draw();});
-window.addEventListener('resize',react);setWeather('normal');draw();
+scene.addEventListener('pointerdown',e=>{if(!locked&&!tutorialOpen()&&e.target===scene){selected=null;draw();}});
+document.getElementById('remove').addEventListener('click',()=>{if(locked||tutorialOpen())return;if(selected===null){feedback.textContent='Select an element first.';return;}items=items.filter(i=>i.id!==selected);selected=null;feedback.textContent='🗑️ Element removed.';syncWeather();draw();});
+document.getElementById('reset').addEventListener('click',()=>{if(tutorialOpen())return;drag=null;if(eventTimer)clearTimeout(eventTimer);eventTimer=null;locked=false;blizzardActive=false;document.getElementById('tornado').classList.remove('active');items=[];selected=null;setWeather('normal');feedback.textContent='✨ A fresh sky awaits!';draw();});
+document.getElementById('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch(e){feedback.textContent='Fullscreen unavailable here. Use the browser fullscreen shortcut.';}});
+document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreen').textContent=document.fullscreenElement?'⛶ Exit fullscreen':'⛶ Fullscreen';});
+window.addEventListener('resize',()=>{if(locked)return;const b=bounds();for(const item of items)item.y=clamp(item.y,b.top,b.bottom);draw();});setWeather('normal');draw();
 })();
 </script></body></html>'''
     html_code = html_code.replace("__ASSET_JSON__", asset_json)
-    components.html(html_code, height=760, scrolling=True)
+    with st.container(key="weather_fullscreen"):
+        components.html(html_code, height=760, scrolling=False)
