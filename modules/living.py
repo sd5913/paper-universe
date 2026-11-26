@@ -74,7 +74,21 @@ def render():
           border-radius: 0px;
           box-shadow: 0 8px 24px rgba(60, 50, 40, 0.14);
         }}
-      </style>
+          /* 保持 16:9 不拉伸且铺满视口 */
+    body {{
+      margin: 0 !important;
+      background: #8cc6e7 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      height: 100vh !important;
+      overflow: hidden !important;
+    }}
+    /* 缩小右上角按钮与底部工具栏 */
+    button, .pill-btn, .hud-btn, [class*="btn"], [class*="toolbar"], [class*="dock"], [class*="controls"] {{
+      transform: scale(0.78) !important;
+    }}
+    </style>
     </head>
     <body>
     <script>
@@ -509,7 +523,7 @@ def render():
         return sceneState === "GARDEN_ACTIVE" && abs(px - 532) <= 130 && abs(py - WORKBENCH_Y) <= 26;
       }}
 
-      function isPointOnPageCurl(x, y) {{ return false; }} function _unused_page_curl(px, py) {{
+      function isPointOnPageCurl(x, y) {{ return false; }} function _unused_page_curl(x, y) {{ return false; }} function _unused_page_curl(px, py) {{
         return px >= width - 125 && py >= height - 115;
       }}
 
@@ -984,6 +998,7 @@ def render():
       }}
 
       function drawLivingPageCurl() {{
+    return;
     return;
         let hovered = isPointOnPageCurl(mouseX, mouseY);
         let readyPulse = (unlockedMiracles.size > 0 || gardenVitality > 0.25) ? (sin(frameCount * 0.08) * 0.5 + 0.5) : 0;
